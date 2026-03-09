@@ -154,15 +154,19 @@ class _ServerListScreenState extends State<ServerListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('SFTP Browser'),
         actions: [
-          IconButton(
-            onPressed: _isLoading ? null : () => _loadProfiles(showLoading: false),
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: IconButton.filledTonal(
+              onPressed: _isLoading ? null : () => _loadProfiles(showLoading: false),
+              icon: const Icon(Icons.refresh_rounded),
+              tooltip: 'Refresh',
+            ),
           ),
         ],
       ),
@@ -177,66 +181,31 @@ class _ServerListScreenState extends State<ServerListScreen> {
             colors: [
               theme.colorScheme.surface,
               theme.colorScheme.surfaceContainerLowest,
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Column(
-              children: [
-                Card(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.88),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 52,
-                          height: 52,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Icon(
-                            Icons.storage_rounded,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Saved connections',
-                                style: theme.textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_profiles.length} server${_profiles.length == 1 ? '' : 's'} ready to browse.',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: Column(
+                  children: [
+                    _buildHeader(theme, isDark),
+                    const SizedBox(height: 20),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: _buildBodyContent(theme, isDark),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _buildBodyContent(theme),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -244,49 +213,168 @@ class _ServerListScreenState extends State<ServerListScreen> {
     );
   }
 
-  Widget _buildBodyContent(ThemeData theme) {
+  Widget _buildHeader(ThemeData theme, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.76 : 0.92),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.28 : 0.65,
+          ),
+        ),
+        boxShadow: isDark
+            ? const []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: isDark ? 0.7 : 1,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  Icons.folder_outlined,
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saved connections',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Open a server in one tap and keep your frequent SSH targets close at hand.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _buildSummaryChip(
+                theme,
+                label: 'Servers',
+                value: '${_profiles.length}',
+              ),
+              _buildSummaryChip(
+                theme,
+                label: 'State',
+                value: _profiles.isEmpty ? 'Empty' : 'Ready',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryChip(
+    ThemeData theme, {
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBodyContent(ThemeData theme, bool isDark) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
+      return Center(
+        key: const ValueKey('loading'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 32,
+              height: 32,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Loading saved servers',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       );
     }
 
     if (_errorMessage != null) {
       return Center(
+        key: const ValueKey('error'),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Card(
-            color: theme.colorScheme.errorContainer.withValues(alpha: 0.5),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.cloud_off_outlined,
-                    size: 40,
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _errorMessage!,
-                    style: theme.textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Try reloading the saved profiles.',
-                    style: theme.textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.tonalIcon(
-                    onPressed: _loadProfiles,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Try again'),
-                  ),
-                ],
-              ),
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: _buildStateCard(
+            theme,
+            isDark: isDark,
+            icon: Icons.cloud_off_outlined,
+            title: _errorMessage!,
+            message: 'Try reloading the saved profiles.',
+            action: FilledButton.tonalIcon(
+              onPressed: _loadProfiles,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+            ),
+            tint: theme.colorScheme.errorContainer.withValues(
+              alpha: isDark ? 0.28 : 0.45,
             ),
           ),
         ),
@@ -295,50 +383,19 @@ class _ServerListScreenState extends State<ServerListScreen> {
 
     if (_profiles.isEmpty) {
       return Center(
+        key: const ValueKey('empty'),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Card(
-            color: theme.colorScheme.surface.withValues(alpha: 0.9),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Icon(
-                      Icons.router_outlined,
-                      size: 36,
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No saved servers yet',
-                    style: theme.textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Add an SSH profile to start browsing remote files.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: _openServerForm,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add server'),
-                  ),
-                ],
-              ),
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: _buildStateCard(
+            theme,
+            isDark: isDark,
+            icon: Icons.add_link_rounded,
+            title: 'No saved servers yet',
+            message: 'Add an SSH profile to start browsing remote files.',
+            action: FilledButton.icon(
+              onPressed: _openServerForm,
+              icon: const Icon(Icons.add),
+              label: const Text('Add server'),
             ),
           ),
         ),
@@ -346,48 +403,149 @@ class _ServerListScreenState extends State<ServerListScreen> {
     }
 
     return RefreshIndicator(
+      key: const ValueKey('list'),
       onRefresh: () => _loadProfiles(showLoading: false),
       child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 96),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        padding: const EdgeInsets.only(bottom: 112),
         itemCount: _profiles.length,
         separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final profile = _profiles[index];
-          return Card(
-            color: theme.colorScheme.surface.withValues(alpha: 0.9),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 8,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              onTap: () => _openBrowser(profile),
-              onLongPress: () => _confirmDelete(profile),
-              leading: Container(
-                width: 48,
-                height: 48,
+          return _buildServerCard(theme, isDark, profile);
+        },
+      ),
+    );
+  }
+
+  Widget _buildStateCard(
+    ThemeData theme, {
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required String message,
+    required Widget action,
+    Color? tint,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: tint ?? theme.colorScheme.surface.withValues(alpha: isDark ? 0.76 : 0.92),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(
+            alpha: isDark ? 0.24 : 0.55,
+          ),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Icon(
+              icon,
+              size: 30,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          action,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServerCard(ThemeData theme, bool isDark, ServerProfile profile) {
+    return Card(
+      color: theme.colorScheme.surface.withValues(alpha: isDark ? 0.74 : 0.95),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () => _openBrowser(profile),
+        onLongPress: () => _confirmDelete(profile),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 8, 18),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: isDark ? 0.7 : 1,
+                  ),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  Icons.cloud_done_outlined,
+                  Icons.dns_rounded,
                   color: theme.colorScheme.onPrimaryContainer,
                 ),
               ),
-              title: Text(
-                profile.title,
-                style: theme.textTheme.titleMedium,
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  '${profile.host}:${profile.port} • ${profile.authLabel}',
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      profile.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      profile.host,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildMetaChip(
+                          theme,
+                          icon: Icons.lan_outlined,
+                          label: '${profile.port}',
+                        ),
+                        _buildMetaChip(
+                          theme,
+                          icon: Icons.key_outlined,
+                          label: profile.authLabel,
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              trailing: PopupMenuButton<_ServerMenuAction>(
+              PopupMenuButton<_ServerMenuAction>(
+                tooltip: 'More actions',
                 onSelected: (action) async {
                   switch (action) {
                     case _ServerMenuAction.browse:
@@ -425,9 +583,40 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetaChip(
+    ThemeData theme, {
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
