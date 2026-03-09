@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/server_profile.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_page_scaffold.dart';
+import '../widgets/section_card.dart';
 
 class ServerFormScreen extends StatefulWidget {
   const ServerFormScreen({
@@ -54,18 +57,13 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
     }
 
     final profile = ServerProfile(
-      id: widget.initialProfile?.id ??
-          DateTime.now().microsecondsSinceEpoch.toString(),
+      id: widget.initialProfile?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
       host: _hostController.text.trim(),
       port: int.tryParse(_portController.text.trim()) ?? 22,
       username: _usernameController.text.trim(),
       authType: _authType,
-      password: _authType == AuthType.password
-          ? _passwordController.text
-          : null,
-      privateKey: _authType == AuthType.privateKey
-          ? _privateKeyController.text.trim()
-          : null,
+      password: _authType == AuthType.password ? _passwordController.text : null,
+      privateKey: _authType == AuthType.privateKey ? _privateKeyController.text.trim() : null,
     );
 
     Navigator.of(context).pop(profile);
@@ -75,178 +73,239 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit server' : 'Add server'),
-      ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surfaceContainerLowest,
-              theme.colorScheme.primaryContainer.withValues(alpha: 0.28),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Card(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.88),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Connection details',
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Save reusable SSH profiles for quick reconnects.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        TextFormField(
-                          controller: _hostController,
-                          decoration: const InputDecoration(
-                            labelText: 'Host',
-                            prefixIcon: Icon(Icons.dns_outlined),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter a host name or IP address.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _portController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Port',
-                                  prefixIcon: Icon(Icons.settings_ethernet),
-                                ),
-                                validator: (value) {
-                                  final port = int.tryParse(value ?? '');
-                                  if (port == null || port < 1 || port > 65535) {
-                                    return 'Use a valid port.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              flex: 2,
-                              child: TextFormField(
-                                controller: _usernameController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Username',
-                                  prefixIcon: Icon(Icons.person_outline),
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Enter a username.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Authentication',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        SegmentedButton<AuthType>(
-                          segments: const [
-                            ButtonSegment<AuthType>(
-                              value: AuthType.password,
-                              label: Text('Password'),
-                              icon: Icon(Icons.password),
-                            ),
-                            ButtonSegment<AuthType>(
-                              value: AuthType.privateKey,
-                              label: Text('Private key'),
-                              icon: Icon(Icons.key_outlined),
-                            ),
-                          ],
-                          selected: {_authType},
-                          showSelectedIcon: false,
-                          onSelectionChanged: (selection) {
-                            setState(() {
-                              _authType = selection.first;
-                            });
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        if (_authType == AuthType.password)
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline),
-                            ),
-                            validator: (value) {
-                              if (_authType == AuthType.password &&
-                                  (value == null || value.isEmpty)) {
-                                return 'Enter the SSH password.';
-                              }
-                              return null;
-                            },
-                          )
-                        else
-                          TextFormField(
-                            controller: _privateKeyController,
-                            minLines: 8,
-                            maxLines: 12,
-                            decoration: const InputDecoration(
-                              labelText: 'Private key (PEM)',
-                              alignLabelWithHint: true,
-                              prefixIcon: Icon(Icons.key),
-                            ),
-                            validator: (value) {
-                              if (_authType == AuthType.privateKey &&
-                                  (value == null || value.trim().isEmpty)) {
-                                return 'Paste the PEM private key.';
-                              }
-                              return null;
-                            },
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return AppPageScaffold(
+      title: widget.isEditing ? 'Edit server' : 'Add server',
+      maxWidth: AppTheme.formMaxWidth,
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: FilledButton.icon(
           onPressed: _save,
-          icon: const Icon(Icons.save_outlined),
+          icon: const Icon(Icons.save_outlined, size: 18),
           label: Text(widget.isEditing ? 'Save changes' : 'Save server'),
         ),
       ),
+      child: Form(
+        key: _formKey,
+        child: ListView(
+          children: [
+            SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Connection settings',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Host, port, and account details for this SSH target.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildConnectionFields(context),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppTheme.sectionGap),
+            SectionCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Authentication',
+                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Choose how this profile signs in.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<AuthType>(
+                      segments: const [
+                        ButtonSegment<AuthType>(
+                          value: AuthType.password,
+                          label: Text('Password'),
+                          icon: Icon(Icons.password),
+                        ),
+                        ButtonSegment<AuthType>(
+                          value: AuthType.privateKey,
+                          label: Text('Private key'),
+                          icon: Icon(Icons.key_outlined),
+                        ),
+                      ],
+                      selected: {_authType},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) {
+                        setState(() {
+                          _authType = selection.first;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_authType == AuthType.password)
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: Icon(Icons.lock_outline, size: 18),
+                      ),
+                      validator: (value) {
+                        if (_authType == AuthType.password && (value == null || value.isEmpty)) {
+                          return 'Enter the SSH password.';
+                        }
+                        return null;
+                      },
+                    )
+                  else
+                    TextFormField(
+                      controller: _privateKeyController,
+                      minLines: 8,
+                      maxLines: 12,
+                      decoration: const InputDecoration(
+                        labelText: 'Private key (PEM)',
+                        alignLabelWithHint: true,
+                        prefixIcon: Icon(Icons.key, size: 18),
+                      ),
+                      validator: (value) {
+                        if (_authType == AuthType.privateKey &&
+                            (value == null || value.trim().isEmpty)) {
+                          return 'Paste the PEM private key.';
+                        }
+                        return null;
+                      },
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 72),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConnectionFields(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useTwoColumns = constraints.maxWidth >= 560;
+
+        if (useTwoColumns) {
+          return Column(
+            children: [
+              TextFormField(
+                controller: _hostController,
+                decoration: const InputDecoration(
+                  labelText: 'Host',
+                  prefixIcon: Icon(Icons.dns_outlined, size: 18),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter a host name or IP address.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _portController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Port',
+                        prefixIcon: Icon(Icons.settings_ethernet, size: 18),
+                      ),
+                      validator: (value) {
+                        final port = int.tryParse(value ?? '');
+                        if (port == null || port < 1 || port > 65535) {
+                          return 'Use a valid port.';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        prefixIcon: Icon(Icons.person_outline, size: 18),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter a username.';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            TextFormField(
+              controller: _hostController,
+              decoration: const InputDecoration(
+                labelText: 'Host',
+                prefixIcon: Icon(Icons.dns_outlined, size: 18),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter a host name or IP address.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _portController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Port',
+                prefixIcon: Icon(Icons.settings_ethernet, size: 18),
+              ),
+              validator: (value) {
+                final port = int.tryParse(value ?? '');
+                if (port == null || port < 1 || port > 65535) {
+                  return 'Use a valid port.';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                prefixIcon: Icon(Icons.person_outline, size: 18),
+              ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter a username.';
+                }
+                return null;
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 }

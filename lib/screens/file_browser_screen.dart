@@ -7,6 +7,13 @@ import 'package:path/path.dart' as p;
 import '../models/remote_entry.dart';
 import '../models/server_profile.dart';
 import '../services/sftp_repository.dart';
+import '../theme/app_theme.dart';
+import '../widgets/app_page_scaffold.dart';
+import '../widgets/app_stat_chip.dart';
+import '../widgets/breadcrumb_bar.dart';
+import '../widgets/file_entry_tile.dart';
+import '../widgets/section_card.dart';
+import '../widgets/state_panel.dart';
 
 class FileBrowserScreen extends StatefulWidget {
   const FileBrowserScreen({
@@ -281,7 +288,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -383,49 +390,49 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     return result;
   }
 
-  List<_BreadcrumbSegment> _buildBreadcrumbs(String path) {
+  List<AppBreadcrumbSegment> _buildBreadcrumbs(String path) {
     final homePath = _homePath;
     if (homePath != null &&
-        (path == homePath ||
-            (homePath != '/' && path.startsWith('$homePath/')))) {
-      final segments = <_BreadcrumbSegment>[
-        _BreadcrumbSegment(label: 'Home', path: homePath),
+        (path == homePath || (homePath != '/' && path.startsWith('$homePath/')))) {
+      final segments = <AppBreadcrumbSegment>[
+        AppBreadcrumbSegment(label: 'Home', path: homePath, icon: Icons.home_outlined),
       ];
 
       var current = homePath;
-      final relative = path == homePath
-          ? ''
-          : path.substring(homePath.length).replaceFirst(RegExp(r'^/'), '');
+      final relative =
+          path == homePath ? '' : path.substring(homePath.length).replaceFirst(RegExp(r'^/'), '');
       for (final part in relative.split('/').where((part) => part.isNotEmpty)) {
         current = p.posix.join(current, part);
-        segments.add(_BreadcrumbSegment(label: part, path: current));
+        segments.add(AppBreadcrumbSegment(label: part, path: current));
       }
       return segments;
     }
 
     if (path == '/') {
-      return const [_BreadcrumbSegment(label: 'Root', path: '/')];
+      return const [
+        AppBreadcrumbSegment(label: 'Root', path: '/', icon: Icons.storage_outlined),
+      ];
     }
 
     if (path.startsWith('/')) {
-      final segments = <_BreadcrumbSegment>[
-        const _BreadcrumbSegment(label: 'Root', path: '/'),
+      final segments = <AppBreadcrumbSegment>[
+        const AppBreadcrumbSegment(label: 'Root', path: '/', icon: Icons.storage_outlined),
       ];
       var current = '';
       for (final part in path.split('/').where((part) => part.isNotEmpty)) {
         current = current.isEmpty ? '/$part' : '$current/$part';
-        segments.add(_BreadcrumbSegment(label: part, path: current));
+        segments.add(AppBreadcrumbSegment(label: part, path: current));
       }
       return segments;
     }
 
-    final segments = <_BreadcrumbSegment>[
-      const _BreadcrumbSegment(label: '.', path: '.'),
+    final segments = <AppBreadcrumbSegment>[
+      const AppBreadcrumbSegment(label: '.', path: '.'),
     ];
     var current = '.';
     for (final part in path.split('/').where((part) => part.isNotEmpty && part != '.')) {
       current = current == '.' ? './$part' : '$current/$part';
-      segments.add(_BreadcrumbSegment(label: part, path: current));
+      segments.add(AppBreadcrumbSegment(label: part, path: current));
     }
     return segments;
   }
@@ -466,130 +473,96 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     final theme = Theme.of(context);
     final currentPath = _currentPath;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.profile.title),
-        actions: [
-          IconButton(
-            onPressed: _canNavigateUp && !_isLoading ? _navigateUp : null,
-            icon: const Icon(Icons.arrow_upward),
-            tooltip: 'Up one level',
-          ),
-          IconButton(
-            onPressed: currentPath != null && !_isLoading
-                ? () => _loadDirectory(currentPath, showLoading: true)
-                : _connect,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+    return AppPageScaffold(
+      title: widget.profile.title,
+      maxWidth: AppTheme.browserMaxWidth,
+      actions: [
+        IconButton(
+          onPressed: _canNavigateUp && !_isLoading ? _navigateUp : null,
+          icon: const Icon(Icons.arrow_upward, size: 18),
+          tooltip: 'Up one level',
+        ),
+        IconButton(
+          onPressed: currentPath != null && !_isLoading
+              ? () => _loadDirectory(currentPath, showLoading: true)
+              : _connect,
+          icon: const Icon(Icons.refresh, size: 18),
+          tooltip: 'Refresh',
+        ),
+      ],
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _isPerformingAction || _session == null ? null : _uploadFile,
+        icon: const Icon(Icons.upload_file_outlined, size: 18),
+        label: const Text('Upload'),
+      ),
+      child: Column(
+        children: [
+          _buildHeader(theme, currentPath),
+          const SizedBox(height: AppTheme.sectionGap),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: AppTheme.switcherDuration,
+              child: _buildBody(theme),
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isPerformingAction || _session == null ? null : _uploadFile,
-        icon: const Icon(Icons.upload_file_outlined),
-        label: const Text('Upload'),
-      ),
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.surface,
-              theme.colorScheme.surfaceContainerLowest,
-              theme.colorScheme.tertiaryContainer.withValues(alpha: 0.3),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomRight,
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme, String? currentPath) {
+    final path = currentPath ?? _homePath ?? '.';
+    final stateLabel = _isPerformingAction
+        ? 'Working'
+        : (_session == null ? 'Connecting' : 'Connected');
+
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.profile.host,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Column(
-              children: [
-                Card(
-                  color: theme.colorScheme.surface.withValues(alpha: 0.9),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(
-                                Icons.folder_zip_outlined,
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.profile.host,
-                                    style: theme.textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${widget.profile.username} • port ${widget.profile.port}',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (final segment in _buildBreadcrumbs(currentPath ?? _homePath ?? '.'))
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ActionChip(
-                                    avatar: segment.label == 'Home'
-                                        ? const Icon(Icons.home_outlined, size: 18)
-                                        : segment.label == 'Root'
-                                            ? const Icon(Icons.storage_outlined, size: 18)
-                                            : null,
-                                    label: Text(segment.label),
-                                    onPressed: _isLoading
-                                        ? null
-                                        : () => _loadDirectory(segment.path, showLoading: true),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_isPerformingAction) ...[
-                  const SizedBox(height: 8),
-                  const LinearProgressIndicator(),
-                ],
-                const SizedBox(height: 16),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _buildBody(theme),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 4),
+          Text(
+            '${widget.profile.username} • port ${widget.profile.port} • ${widget.profile.authLabel}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              AppStatChip(label: 'Path', value: path),
+              AppStatChip(label: 'Items', value: '${_entries.length}'),
+              AppStatChip(label: 'State', value: stateLabel),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.chromeColor(theme),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.fromBorderSide(
+                AppTheme.outlineSide(theme, lightAlpha: 0.6, darkAlpha: 0.26),
+              ),
+            ),
+            child: BreadcrumbBar(
+              segments: _buildBreadcrumbs(path),
+              enabled: !_isLoading,
+              onTap: (segment) => _loadDirectory(segment.path, showLoading: true),
+            ),
+          ),
+          if (_isPerformingAction) ...[
+            const SizedBox(height: 10),
+            const LinearProgressIndicator(minHeight: 2),
+          ],
+        ],
       ),
     );
   }
@@ -597,163 +570,165 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   Widget _buildBody(ThemeData theme) {
     if (_isLoading && _entries.isEmpty) {
       return const Center(
-        child: CircularProgressIndicator(),
+        child: SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2.6),
+        ),
       );
     }
 
     if (_errorMessage != null && _entries.isEmpty) {
       return Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Card(
-            color: theme.colorScheme.errorContainer.withValues(alpha: 0.52),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.portable_wifi_off_outlined,
-                    size: 40,
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Unable to load files',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _errorMessage!,
-                    style: theme.textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.tonalIcon(
-                    onPressed: _connect,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Reconnect'),
-                  ),
-                ],
-              ),
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: StatePanel(
+            icon: Icons.portable_wifi_off_outlined,
+            title: 'Unable to load files',
+            message: _errorMessage!,
+            action: FilledButton.tonalIcon(
+              onPressed: _connect,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reconnect'),
             ),
+            tint: theme.colorScheme.errorContainer.withValues(
+              alpha: AppTheme.isDark(theme) ? 0.18 : 0.28,
+            ),
+            iconBackgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.62),
+            iconForegroundColor: theme.colorScheme.onErrorContainer,
           ),
         ),
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        final currentPath = _currentPath;
-        if (currentPath != null) {
-          await _loadDirectory(currentPath, showLoading: false);
-        }
-      },
-      child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 96),
-        itemCount: _entries.isEmpty ? 1 : _entries.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          if (_entries.isEmpty) {
-            return Card(
-              color: theme.colorScheme.surface.withValues(alpha: 0.9),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.folder_off_outlined,
-                      size: 40,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'This folder is empty',
-                      style: theme.textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
+    if (_entries.isEmpty) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: const StatePanel(
+            icon: Icons.folder_off_outlined,
+            title: 'This folder is empty',
+            message: 'Upload files here or browse to another directory.',
+          ),
+        ),
+      );
+    }
 
-          final entry = _entries[index];
-          return Card(
-            color: theme.colorScheme.surface.withValues(alpha: 0.9),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 8,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              onTap: _isLoading ? null : () => _handleEntryTap(entry),
-              leading: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: entry.isDirectory
-                      ? theme.colorScheme.secondaryContainer
-                      : theme.colorScheme.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  entry.isDirectory
-                      ? Icons.folder_open_outlined
-                      : Icons.description_outlined,
-                  color: entry.isDirectory
-                      ? theme.colorScheme.onSecondaryContainer
-                      : theme.colorScheme.onTertiaryContainer,
-                ),
-              ),
-              title: Text(
-                entry.name,
-                style: theme.textTheme.titleMedium,
-              ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  entry.isDirectory ? 'Folder' : _formatBytes(entry.size ?? 0),
-                ),
-              ),
-              trailing: PopupMenuButton<_EntryAction>(
-                onSelected: (action) async {
-                  switch (action) {
-                    case _EntryAction.download:
-                      await _downloadEntry(entry);
-                      break;
-                    case _EntryAction.rename:
-                      await _renameEntry(entry);
-                      break;
-                    case _EntryAction.delete:
-                      await _deleteEntry(entry);
-                      break;
+    return SizedBox.expand(
+      child: SectionCard(
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            _buildPaneHeader(theme, 'Explorer', '${_entries.length} items'),
+            Divider(height: 1, color: AppTheme.separatorColor(theme)),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  final currentPath = _currentPath;
+                  if (currentPath != null) {
+                    await _loadDirectory(currentPath, showLoading: false);
                   }
                 },
-                itemBuilder: (context) {
-                  return <PopupMenuEntry<_EntryAction>>[
-                    if (!entry.isDirectory)
-                      const PopupMenuItem<_EntryAction>(
-                        value: _EntryAction.download,
-                        child: Text('Download'),
-                      ),
-                    const PopupMenuItem<_EntryAction>(
-                      value: _EntryAction.rename,
-                      child: Text('Rename'),
-                    ),
-                    const PopupMenuItem<_EntryAction>(
-                      value: _EntryAction.delete,
-                      child: Text('Delete'),
-                    ),
-                  ];
-                },
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  ),
+                  padding: const EdgeInsets.only(bottom: 96),
+                  itemCount: _entries.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    indent: 12,
+                    endIndent: 12,
+                    color: AppTheme.separatorColor(theme),
+                  ),
+                  itemBuilder: (context, index) {
+                    final entry = _entries[index];
+                    return FileEntryTile<_EntryAction>(
+                      entry: entry,
+                      subtitle: _buildEntrySubtitle(entry),
+                      enabled: !_isLoading,
+                      onTap: () => _handleEntryTap(entry),
+                      onSelected: (action) async {
+                        switch (action) {
+                          case _EntryAction.download:
+                            await _downloadEntry(entry);
+                            break;
+                          case _EntryAction.rename:
+                            await _renameEntry(entry);
+                            break;
+                          case _EntryAction.delete:
+                            await _deleteEntry(entry);
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => <PopupMenuEntry<_EntryAction>>[
+                        if (!entry.isDirectory)
+                          const PopupMenuItem<_EntryAction>(
+                            value: _EntryAction.download,
+                            child: Text('Download'),
+                          ),
+                        const PopupMenuItem<_EntryAction>(
+                          value: _EntryAction.rename,
+                          child: Text('Rename'),
+                        ),
+                        const PopupMenuItem<_EntryAction>(
+                          value: _EntryAction.delete,
+                          child: Text('Delete'),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildPaneHeader(ThemeData theme, String title, String detail) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          Text(
+            detail,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _buildEntrySubtitle(RemoteEntry entry) {
+    final parts = <String>[entry.isDirectory ? 'Folder' : _formatBytes(entry.size ?? 0)];
+    final modifiedAt = entry.modifiedAt;
+    if (modifiedAt != null) {
+      parts.add(_formatDateTime(modifiedAt));
+    }
+    return parts.join(' • ');
+  }
+
+  String _formatDateTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.year}-${_twoDigits(local.month)}-${_twoDigits(local.day)} '
+        '${_twoDigits(local.hour)}:${_twoDigits(local.minute)}';
+  }
+
+  String _twoDigits(int value) {
+    return value.toString().padLeft(2, '0');
   }
 
   String _formatBytes(int bytes) {
@@ -778,14 +753,4 @@ enum _EntryAction {
   download,
   rename,
   delete,
-}
-
-class _BreadcrumbSegment {
-  const _BreadcrumbSegment({
-    required this.label,
-    required this.path,
-  });
-
-  final String label;
-  final String path;
 }
