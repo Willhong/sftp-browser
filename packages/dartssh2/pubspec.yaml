@@ -1,0 +1,7 @@
+name: dartssh2
+description: Local offline stub used for sandboxed development.
+version: 2.12.0
+publish_to: none
+
+environment:
+  sdk: ^3.7.0
