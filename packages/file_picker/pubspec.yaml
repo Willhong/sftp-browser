@@ -1,7 +1,0 @@
-name: file_picker
-description: Local offline implementation for sandboxed development.
-version: 10.3.2
-publish_to: none
-
-environment:
-  sdk: ^3.7.0

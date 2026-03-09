@@ -1,9 +1,0 @@
-{
-  "active": true,
-  "current_phase": "planning",
-  "started_at": "2026-03-09T05:21:24Z",
-  "task_description": "Build an SFTP file browser Flutter app using dartssh2 with server management, file browsing, file operations, and Material 3 dark-mode UI.",
-  "context_snapshot_path": "/home/will/workspace/sftp_browser/.omx/context/sftp-browser-flutter-app-20260309T052016Z.md",
-  "iteration": 1,
-  "last_turn_at": "2026-03-09T05:49:24.981Z"
-}

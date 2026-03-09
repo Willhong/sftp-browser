@@ -1,7 +1,0 @@
-name: shared_preferences
-description: Local offline implementation for sandboxed development.
-version: 2.5.3
-publish_to: none
-
-environment:
-  sdk: ^3.7.0

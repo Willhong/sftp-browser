@@ -6,6 +6,7 @@
 build/
 *.g.dart
 *.freezed.dart
+flutter_*.log
 
 # Android
 android/local.properties
@@ -15,6 +16,15 @@ android/key.properties
 # iOS
 ios/Pods/
 ios/.symlinks/
+
+# IDE
+.idea/
+
+# OMX / oh-my-codex internal
+.omx/
+
+# Local packages (stub overrides)
+packages/
 
 # Shorebird
 # shorebird.yaml is intentionally committed
