@@ -73,6 +73,7 @@ class TerminalScreen extends StatefulWidget {
 
 class _TerminalScreenState extends State<TerminalScreen> {
   late final Terminal _terminal;
+  final TerminalController _terminalController = TerminalController();
   SSHSession? _shellSession;
   bool _isConnecting = true;
   String? _errorMessage;
@@ -111,8 +112,21 @@ class _TerminalScreenState extends State<TerminalScreen> {
       };
 
       _terminal.onResize = (width, height, pixelWidth, pixelHeight) {
+        // Send accurate column/row counts to PTY so bash clears lines correctly
         session.resizeTerminal(width, height, pixelWidth, pixelHeight);
       };
+
+      // Force initial resize after shell is ready so PTY matches actual view
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _terminal.viewWidth > 0) {
+          session.resizeTerminal(
+            _terminal.viewWidth,
+            _terminal.viewHeight,
+            0,
+            0,
+          );
+        }
+      });
 
       session.stdout
           .cast<List<int>>()
@@ -205,6 +219,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
   @override
   void dispose() {
     _shellSession?.close();
+    _terminalController.dispose();
     super.dispose();
   }
 
@@ -314,6 +329,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
               searchHitBackgroundCurrent: Color(0xFFFF8000),
               searchHitForeground: Color(0xFF000000),
             ),
+            controller: _terminalController,
             padding: const EdgeInsets.all(8),
             autofocus: true,
             simulateScroll: false,
