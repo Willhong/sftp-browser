@@ -107,7 +107,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       _terminal.buffer.setCursor(0, 0);
 
       _terminal.onOutput = (data) {
-        session.write(utf8.encode(data));
+        session.write(utf8.encode(_applyModifiers(data)));
       };
 
       _terminal.onResize = (width, height, pixelWidth, pixelHeight) {
@@ -132,6 +132,36 @@ class _TerminalScreenState extends State<TerminalScreen> {
         _errorMessage = error.toString().replaceFirst('Exception: ', '');
       });
     }
+  }
+
+  String _applyModifiers(String data) {
+    if (!_ctrlActive && !_altActive) return data;
+
+    final buffer = StringBuffer();
+    for (final char in data.runes.map(String.fromCharCode)) {
+      final code = char.codeUnitAt(0);
+      if (_ctrlActive && code >= 64 && code <= 95) {
+        // A-Z, [ \ ] ^ _ → Ctrl+A~Z etc (ASCII 1~31)
+        buffer.writeCharCode(code - 64);
+      } else if (_ctrlActive && code >= 97 && code <= 122) {
+        // a-z → same as A-Z ctrl
+        buffer.writeCharCode(code - 96);
+      } else if (_altActive) {
+        // Meta prefix
+        buffer.write('\x1b$char');
+      } else {
+        buffer.write(char);
+      }
+    }
+
+    // Auto-reset modifiers
+    if (_ctrlActive || _altActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() { _ctrlActive = false; _altActive = false; });
+      });
+    }
+
+    return buffer.toString();
   }
 
   void _onSessionDone() {
