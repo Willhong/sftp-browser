@@ -8,6 +8,55 @@ import '../models/server_profile.dart';
 import '../services/sftp_repository.dart';
 import '../theme/app_theme.dart';
 
+// ─── Key toolbar data ────────────────────────────────────────────────────────
+
+enum _KeyType { send, toggle }
+
+class _KeyDef {
+  const _KeyDef(this.label, this.value, {this.type = _KeyType.send});
+  final String label;
+  final String value; // raw bytes to send, or modifier name for toggles
+  final _KeyType type;
+}
+
+const _kToolbarRows = [
+  // Row 1: navigation + modifiers
+  [
+    _KeyDef('ESC', '\x1b'),
+    _KeyDef('TAB', '\t'),
+    _KeyDef('CTRL', 'ctrl', type: _KeyType.toggle),
+    _KeyDef('ALT', 'alt', type: _KeyType.toggle),
+    _KeyDef('↑', '\x1b[A'),
+    _KeyDef('↓', '\x1b[B'),
+    _KeyDef('←', '\x1b[D'),
+    _KeyDef('→', '\x1b[C'),
+  ],
+  // Row 2: Ctrl combos (pre-computed ASCII control codes)
+  [
+    _KeyDef('^C', '\x03'),  // Ctrl+C  SIGINT
+    _KeyDef('^D', '\x04'),  // Ctrl+D  EOF
+    _KeyDef('^Z', '\x1a'),  // Ctrl+Z  SIGTSTP
+    _KeyDef('^L', '\x0c'),  // Ctrl+L  clear
+    _KeyDef('^A', '\x01'),  // Ctrl+A  line start
+    _KeyDef('^E', '\x05'),  // Ctrl+E  line end
+    _KeyDef('^K', '\x0b'),  // Ctrl+K  kill to end
+    _KeyDef('^U', '\x15'),  // Ctrl+U  kill to start
+  ],
+  // Row 3: F keys
+  [
+    _KeyDef('F1', '\x1bOP'),
+    _KeyDef('F2', '\x1bOQ'),
+    _KeyDef('F3', '\x1bOR'),
+    _KeyDef('F4', '\x1bOS'),
+    _KeyDef('F5', '\x1b[15~'),
+    _KeyDef('F6', '\x1b[17~'),
+    _KeyDef('F7', '\x1b[18~'),
+    _KeyDef('F8', '\x1b[19~'),
+  ],
+];
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
 class TerminalScreen extends StatefulWidget {
   const TerminalScreen({
     super.key,
@@ -27,6 +76,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
   SSHSession? _shellSession;
   bool _isConnecting = true;
   String? _errorMessage;
+
+  // modifier toggle state
+  bool _ctrlActive = false;
+  bool _altActive = false;
 
   @override
   void initState() {
@@ -50,7 +103,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
 
       _shellSession = session;
-
       _terminal.buffer.clear();
       _terminal.buffer.setCursor(0, 0);
 
@@ -65,20 +117,14 @@ class _TerminalScreenState extends State<TerminalScreen> {
       session.stdout
           .cast<List<int>>()
           .transform(const Utf8Decoder(allowMalformed: true))
-          .listen(
-            _terminal.write,
-            onDone: _onSessionDone,
-            onError: _onSessionError,
-          );
+          .listen(_terminal.write, onDone: _onSessionDone, onError: _onSessionError);
 
       session.stderr
           .cast<List<int>>()
           .transform(const Utf8Decoder(allowMalformed: true))
           .listen(_terminal.write);
 
-      if (mounted) {
-        setState(() => _isConnecting = false);
-      }
+      if (mounted) setState(() => _isConnecting = false);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -98,11 +144,42 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _terminal.write('\r\n\x1b[31m[Error: $error]\x1b[0m\r\n');
   }
 
+  void _sendKey(_KeyDef key) {
+    if (key.type == _KeyType.toggle) {
+      setState(() {
+        if (key.value == 'ctrl') _ctrlActive = !_ctrlActive;
+        if (key.value == 'alt') _altActive = !_altActive;
+      });
+      return;
+    }
+
+    var seq = key.value;
+
+    // If Ctrl is active and it's a single letter key (from row 2), it's already
+    // pre-computed as ctrl seq. But if user taps Ctrl then an arrow etc — apply meta.
+    if (_altActive) {
+      // ALT/Meta prefix = ESC + sequence
+      seq = '\x1b$seq';
+    }
+
+    _shellSession?.write(utf8.encode(seq));
+
+    // Auto-reset modifiers after use
+    if (_ctrlActive || _altActive) {
+      setState(() {
+        _ctrlActive = false;
+        _altActive = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _shellSession?.close();
     super.dispose();
   }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -112,27 +189,18 @@ class _TerminalScreenState extends State<TerminalScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: isDark
-            ? const Color(0xFF1E1E1E)
-            : const Color(0xFF2D2D2D),
+        backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFF2D2D2D),
         foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               widget.profile.title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
             ),
             Text(
               '${widget.profile.username}@${widget.profile.host}',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.white54,
-              ),
+              style: const TextStyle(fontSize: 11, color: Colors.white54),
             ),
           ],
         ),
@@ -150,9 +218,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   Widget _buildBody() {
     if (_isConnecting) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white54),
-      );
+      return const Center(child: CircularProgressIndicator(color: Colors.white54));
     }
 
     if (_errorMessage != null) {
@@ -164,13 +230,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
             children: [
               const Icon(Icons.terminal, size: 48, color: Colors.white38),
               const SizedBox(height: 16),
-              Text(
+              const Text(
                 'Failed to open terminal',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
@@ -190,43 +252,109 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
     }
 
-    return TerminalView(
-      _terminal,
-      theme: const TerminalTheme(
-        cursor: Color(0xFFAEAFAD),
-        selection: Color(0xFF5A5A5A),
-        foreground: Color(0xFFCCCCCC),
-        background: Color(0xFF1E1E1E),
-        black: Color(0xFF000000),
-        red: Color(0xFFCD3131),
-        green: Color(0xFF0DBC79),
-        yellow: Color(0xFFE5E510),
-        blue: Color(0xFF2472C8),
-        magenta: Color(0xFFBC3FBC),
-        cyan: Color(0xFF11A8CD),
-        white: Color(0xFFE5E5E5),
-        brightBlack: Color(0xFF666666),
-        brightRed: Color(0xFFF14C4C),
-        brightGreen: Color(0xFF23D18B),
-        brightYellow: Color(0xFFF5F543),
-        brightBlue: Color(0xFF3B8EEA),
-        brightMagenta: Color(0xFFD670D6),
-        brightCyan: Color(0xFF29B8DB),
-        brightWhite: Color(0xFFFFFFFF),
-        searchHitBackground: Color(0xFFFFFF00),
-        searchHitBackgroundCurrent: Color(0xFFFF8000),
-        searchHitForeground: Color(0xFF000000),
-      ),
-      padding: const EdgeInsets.all(8),
-      autofocus: true,
-      textStyle: const TerminalStyle(
-        fontFamily: 'JetBrainsMonoNerd',
-        fontSize: 13.0,
-        fontFamilyFallback: [
-          'NotoSansSymbols2',
-          'Noto Color Emoji',
-          'sans-serif',
+    return Column(
+      children: [
+        Expanded(
+          child: TerminalView(
+            _terminal,
+            theme: const TerminalTheme(
+              cursor: Color(0xFFAEAFAD),
+              selection: Color(0xFF5A5A5A),
+              foreground: Color(0xFFCCCCCC),
+              background: Color(0xFF1E1E1E),
+              black: Color(0xFF000000),
+              red: Color(0xFFCD3131),
+              green: Color(0xFF0DBC79),
+              yellow: Color(0xFFE5E510),
+              blue: Color(0xFF2472C8),
+              magenta: Color(0xFFBC3FBC),
+              cyan: Color(0xFF11A8CD),
+              white: Color(0xFFE5E5E5),
+              brightBlack: Color(0xFF666666),
+              brightRed: Color(0xFFF14C4C),
+              brightGreen: Color(0xFF23D18B),
+              brightYellow: Color(0xFFF5F543),
+              brightBlue: Color(0xFF3B8EEA),
+              brightMagenta: Color(0xFFD670D6),
+              brightCyan: Color(0xFF29B8DB),
+              brightWhite: Color(0xFFFFFFFF),
+              searchHitBackground: Color(0xFFFFFF00),
+              searchHitBackgroundCurrent: Color(0xFFFF8000),
+              searchHitForeground: Color(0xFF000000),
+            ),
+            padding: const EdgeInsets.all(8),
+            autofocus: true,
+            textStyle: const TerminalStyle(
+              fontFamily: 'JetBrainsMonoNerd',
+              fontSize: 13.0,
+              fontFamilyFallback: [
+                'NotoSansSymbols2',
+                'Noto Color Emoji',
+                'sans-serif',
+              ],
+            ),
+          ),
+        ),
+        _buildKeyToolbar(),
+      ],
+    );
+  }
+
+  // ── Key toolbar ────────────────────────────────────────────────────────────
+
+  Widget _buildKeyToolbar() {
+    return Container(
+      color: const Color(0xFF2D2D2D),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Divider(height: 1, color: Color(0xFF444444)),
+          for (final row in _kToolbarRows) _buildToolbarRow(row),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToolbarRow(List<_KeyDef> keys) {
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: keys.map((key) => Expanded(child: _buildKeyButton(key))).toList(),
+      ),
+    );
+  }
+
+  Widget _buildKeyButton(_KeyDef key) {
+    final isToggle = key.type == _KeyType.toggle;
+    final isActive = isToggle &&
+        ((key.value == 'ctrl' && _ctrlActive) || (key.value == 'alt' && _altActive));
+
+    final bgColor = isActive
+        ? const Color(0xFF4A9EFF)
+        : const Color(0xFF3C3C3C);
+    final fgColor = isActive ? Colors.white : const Color(0xFFCCCCCC);
+
+    // Row 2 labels show as "^C", "^D" etc for clarity
+    final displayLabel = key.label;
+
+    return GestureDetector(
+      onTap: () => _sendKey(key),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(5),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          displayLabel,
+          style: TextStyle(
+            color: fgColor,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
     );
   }
