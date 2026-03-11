@@ -185,13 +185,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     var seq = key.value;
 
-    // If Ctrl is active and it's a single letter key (from row 2), it's already
-    // pre-computed as ctrl seq. But if user taps Ctrl then an arrow etc — apply meta.
     if (_altActive) {
-      // ALT/Meta prefix = ESC + sequence
       seq = '\x1b$seq';
     }
 
+    // Route through session directly (bypass terminal local echo)
+    // so server handles cursor movement properly
     _shellSession?.write(utf8.encode(seq));
 
     // Auto-reset modifiers after use
@@ -314,6 +313,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             ),
             padding: const EdgeInsets.all(8),
             autofocus: true,
+            simulateScroll: false,
             textStyle: const TerminalStyle(
               fontFamily: 'JetBrainsMonoNerd',
               fontSize: 13.0,
