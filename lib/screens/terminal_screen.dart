@@ -217,6 +217,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
     return Scaffold(
       backgroundColor: Colors.black,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1E1E1E) : const Color(0xFF2D2D2D),
         foregroundColor: Colors.white,
@@ -281,7 +282,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
     }
 
-    return Column(
+    return SafeArea(
+      bottom: false,
+      child: Column(
       children: [
         Expanded(
           child: TerminalView(
@@ -327,6 +330,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         ),
         _buildKeyToolbar(),
       ],
+      ),
     );
   }
 
