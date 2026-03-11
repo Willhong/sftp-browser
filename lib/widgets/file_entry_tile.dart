@@ -38,15 +38,26 @@ class FileEntryTile<T> extends StatelessWidget {
             child: Row(
               children: [
                 AppIconBadge(
-                  icon: entry.isDirectory ? Icons.folder_outlined : Icons.description_outlined,
+                  icon:
+                      entry.isDirectory
+                          ? Icons.folder_outlined
+                          : Icons.description_outlined,
                   size: 28,
                   iconSize: 15,
-                  backgroundColor: entry.isDirectory
-                      ? theme.colorScheme.secondaryContainer.withValues(alpha: 0.42)
-                      : AppTheme.mutedSurfaceColor(theme, lightAlpha: 0.38, darkAlpha: 0.24),
-                  foregroundColor: entry.isDirectory
-                      ? theme.colorScheme.onSecondaryContainer
-                      : theme.colorScheme.onSurfaceVariant,
+                  backgroundColor:
+                      entry.isDirectory
+                          ? theme.colorScheme.secondaryContainer.withValues(
+                            alpha: 0.42,
+                          )
+                          : AppTheme.mutedSurfaceColor(
+                            theme,
+                            lightAlpha: 0.38,
+                            darkAlpha: 0.24,
+                          ),
+                  foregroundColor:
+                      entry.isDirectory
+                          ? theme.colorScheme.onSecondaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
                 Expanded(

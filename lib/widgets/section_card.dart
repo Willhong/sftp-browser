@@ -25,10 +25,7 @@ class SectionCard extends StatelessWidget {
         border: Border.fromBorderSide(AppTheme.outlineSide(theme)),
         boxShadow: AppTheme.panelShadow(theme),
       ),
-      child: Padding(
-        padding: padding,
-        child: child,
-      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }

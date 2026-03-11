@@ -4,11 +4,7 @@ import '../models/server_profile.dart';
 import '../theme/app_theme.dart';
 import 'app_icon_badge.dart';
 
-enum ServerListItemAction {
-  browse,
-  edit,
-  delete,
-}
+enum ServerListItemAction { browse, edit, delete }
 
 class ServerListItem extends StatelessWidget {
   const ServerListItem({
@@ -78,20 +74,21 @@ class ServerListItem extends StatelessWidget {
                 tooltip: 'More actions',
                 onSelected: onSelected,
                 icon: const Icon(Icons.more_horiz, size: 18),
-                itemBuilder: (context) => const [
-                  PopupMenuItem<ServerListItemAction>(
-                    value: ServerListItemAction.browse,
-                    child: Text('Browse'),
-                  ),
-                  PopupMenuItem<ServerListItemAction>(
-                    value: ServerListItemAction.edit,
-                    child: Text('Edit'),
-                  ),
-                  PopupMenuItem<ServerListItemAction>(
-                    value: ServerListItemAction.delete,
-                    child: Text('Delete'),
-                  ),
-                ],
+                itemBuilder:
+                    (context) => const [
+                      PopupMenuItem<ServerListItemAction>(
+                        value: ServerListItemAction.browse,
+                        child: Text('Browse'),
+                      ),
+                      PopupMenuItem<ServerListItemAction>(
+                        value: ServerListItemAction.edit,
+                        child: Text('Edit'),
+                      ),
+                      PopupMenuItem<ServerListItemAction>(
+                        value: ServerListItemAction.delete,
+                        child: Text('Delete'),
+                      ),
+                    ],
               ),
             ],
           ),

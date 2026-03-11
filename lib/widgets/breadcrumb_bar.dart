@@ -57,9 +57,10 @@ class BreadcrumbBar extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
-                foregroundColor: index == segments.length - 1
-                    ? theme.colorScheme.onSurface
-                    : theme.colorScheme.onSurfaceVariant,
+                foregroundColor:
+                    index == segments.length - 1
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurfaceVariant,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -71,9 +72,10 @@ class BreadcrumbBar extends StatelessWidget {
                   Text(
                     segments[index].label,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: index == segments.length - 1
-                          ? FontWeight.w600
-                          : FontWeight.w500,
+                      fontWeight:
+                          index == segments.length - 1
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                     ),
                   ),
                 ],

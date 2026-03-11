@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'screens/server_list_screen.dart';
+import 'services/server_store.dart';
+import 'services/sftp_repository.dart';
 import 'theme/app_theme.dart';
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.serverStore, this.repository});
+
+  final ServerStore? serverStore;
+  final SftpRepository? repository;
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +19,10 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       theme: AppTheme.buildLightTheme(),
       darkTheme: AppTheme.buildDarkTheme(),
-      home: const ServerListScreen(),
+      home: ServerListScreen(
+        serverStore: serverStore ?? ServerStore(),
+        repository: repository ?? SftpRepository(),
+      ),
     );
   }
 }

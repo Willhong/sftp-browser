@@ -2,24 +2,42 @@ import 'package:flutter/material.dart';
 
 import '../models/server_profile.dart';
 import '../services/server_store.dart';
+import '../services/sftp_repository.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_page_scaffold.dart';
 import '../widgets/app_stat_chip.dart';
 import '../widgets/section_card.dart';
 import '../widgets/server_list_item.dart';
 import '../widgets/state_panel.dart';
-import 'file_browser_screen.dart';
+import 'server_connection_screen.dart';
 import 'server_form_screen.dart';
 
+typedef ConnectionScreenBuilder =
+    Widget Function(
+      BuildContext context,
+      ServerProfile profile,
+      SftpRepository repository,
+    );
+
 class ServerListScreen extends StatefulWidget {
-  const ServerListScreen({super.key});
+  const ServerListScreen({
+    super.key,
+    this.serverStore,
+    this.repository,
+    this.connectionScreenBuilder,
+  });
+
+  final ServerStore? serverStore;
+  final SftpRepository? repository;
+  final ConnectionScreenBuilder? connectionScreenBuilder;
 
   @override
   State<ServerListScreen> createState() => _ServerListScreenState();
 }
 
 class _ServerListScreenState extends State<ServerListScreen> {
-  final ServerStore _serverStore = ServerStore();
+  late final ServerStore _serverStore = widget.serverStore ?? ServerStore();
+  late final SftpRepository _repository = widget.repository ?? SftpRepository();
 
   List<ServerProfile> _profiles = const [];
   bool _isLoading = true;
@@ -85,7 +103,9 @@ class _ServerListScreenState extends State<ServerListScreen> {
     }
 
     final updatedProfiles = [..._profiles];
-    final index = updatedProfiles.indexWhere((profile) => profile.id == result.id);
+    final index = updatedProfiles.indexWhere(
+      (profile) => profile.id == result.id,
+    );
     if (index >= 0) {
       updatedProfiles[index] = result;
     } else {
@@ -125,8 +145,9 @@ class _ServerListScreenState extends State<ServerListScreen> {
       return;
     }
 
-    final updatedProfiles =
-        _profiles.where((item) => item.id != profile.id).toList(growable: false);
+    final updatedProfiles = _profiles
+        .where((item) => item.id != profile.id)
+        .toList(growable: false);
     await _saveProfiles(updatedProfiles);
     if (!mounted) {
       return;
@@ -138,7 +159,17 @@ class _ServerListScreenState extends State<ServerListScreen> {
   Future<void> _openBrowser(ServerProfile profile) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => FileBrowserScreen(profile: profile),
+        builder:
+            (context) =>
+                widget.connectionScreenBuilder?.call(
+                  context,
+                  profile,
+                  _repository,
+                ) ??
+                ServerConnectionScreen(
+                  profile: profile,
+                  repository: _repository,
+                ),
       ),
     );
   }
@@ -163,7 +194,8 @@ class _ServerListScreenState extends State<ServerListScreen> {
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: IconButton(
-            onPressed: _isLoading ? null : () => _loadProfiles(showLoading: false),
+            onPressed:
+                _isLoading ? null : () => _loadProfiles(showLoading: false),
             icon: const Icon(Icons.refresh_rounded, size: 18),
             tooltip: 'Refresh',
           ),
@@ -199,7 +231,9 @@ class _ServerListScreenState extends State<ServerListScreen> {
         children: [
           Text(
             'Connections',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -263,7 +297,8 @@ class _ServerListScreenState extends State<ServerListScreen> {
             tint: theme.colorScheme.errorContainer.withValues(
               alpha: AppTheme.isDark(theme) ? 0.18 : 0.28,
             ),
-            iconBackgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
+            iconBackgroundColor: theme.colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.65),
             iconForegroundColor: theme.colorScheme.onErrorContainer,
           ),
         ),
@@ -295,7 +330,11 @@ class _ServerListScreenState extends State<ServerListScreen> {
         padding: EdgeInsets.zero,
         child: Column(
           children: [
-            _buildPaneHeader(theme, 'Saved servers', '${_profiles.length} total'),
+            _buildPaneHeader(
+              theme,
+              'Saved servers',
+              '${_profiles.length} total',
+            ),
             Divider(height: 1, color: AppTheme.separatorColor(theme)),
             Expanded(
               child: RefreshIndicator(
@@ -306,12 +345,13 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   ),
                   padding: const EdgeInsets.only(bottom: 96),
                   itemCount: _profiles.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    indent: 12,
-                    endIndent: 12,
-                    color: AppTheme.separatorColor(theme),
-                  ),
+                  separatorBuilder:
+                      (_, _) => Divider(
+                        height: 1,
+                        indent: 12,
+                        endIndent: 12,
+                        color: AppTheme.separatorColor(theme),
+                      ),
                   itemBuilder: (context, index) {
                     final profile = _profiles[index];
                     return ServerListItem(

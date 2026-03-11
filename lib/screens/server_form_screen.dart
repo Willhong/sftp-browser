@@ -6,10 +6,7 @@ import '../widgets/app_page_scaffold.dart';
 import '../widgets/section_card.dart';
 
 class ServerFormScreen extends StatefulWidget {
-  const ServerFormScreen({
-    super.key,
-    this.initialProfile,
-  });
+  const ServerFormScreen({super.key, this.initialProfile});
 
   final ServerProfile? initialProfile;
 
@@ -36,7 +33,9 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
     _portController = TextEditingController(text: '${profile?.port ?? 22}');
     _usernameController = TextEditingController(text: profile?.username ?? '');
     _passwordController = TextEditingController(text: profile?.password ?? '');
-    _privateKeyController = TextEditingController(text: profile?.privateKey ?? '');
+    _privateKeyController = TextEditingController(
+      text: profile?.privateKey ?? '',
+    );
     _authType = profile?.authType ?? AuthType.password;
   }
 
@@ -57,13 +56,19 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
     }
 
     final profile = ServerProfile(
-      id: widget.initialProfile?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      id:
+          widget.initialProfile?.id ??
+          DateTime.now().microsecondsSinceEpoch.toString(),
       host: _hostController.text.trim(),
       port: int.tryParse(_portController.text.trim()) ?? 22,
       username: _usernameController.text.trim(),
       authType: _authType,
-      password: _authType == AuthType.password ? _passwordController.text : null,
-      privateKey: _authType == AuthType.privateKey ? _privateKeyController.text.trim() : null,
+      password:
+          _authType == AuthType.password ? _passwordController.text : null,
+      privateKey:
+          _authType == AuthType.privateKey
+              ? _privateKeyController.text.trim()
+              : null,
     );
 
     Navigator.of(context).pop(profile);
@@ -94,7 +99,9 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                 children: [
                   Text(
                     'Connection settings',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -115,7 +122,9 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                 children: [
                   Text(
                     'Authentication',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -159,7 +168,8 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                         prefixIcon: Icon(Icons.lock_outline, size: 18),
                       ),
                       validator: (value) {
-                        if (_authType == AuthType.password && (value == null || value.isEmpty)) {
+                        if (_authType == AuthType.password &&
+                            (value == null || value.isEmpty)) {
                           return 'Enter the SSH password.';
                         }
                         return null;

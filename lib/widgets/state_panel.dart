@@ -42,9 +42,15 @@ class StatePanel extends StatelessWidget {
                 icon: icon,
                 size: 36,
                 iconSize: 18,
-                backgroundColor: iconBackgroundColor ??
-                    AppTheme.mutedSurfaceColor(theme, lightAlpha: 0.6, darkAlpha: 0.4),
-                foregroundColor: iconForegroundColor ?? theme.colorScheme.onSurface,
+                backgroundColor:
+                    iconBackgroundColor ??
+                    AppTheme.mutedSurfaceColor(
+                      theme,
+                      lightAlpha: 0.6,
+                      darkAlpha: 0.4,
+                    ),
+                foregroundColor:
+                    iconForegroundColor ?? theme.colorScheme.onSurface,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -53,7 +59,9 @@ class StatePanel extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -70,10 +78,7 @@ class StatePanel extends StatelessWidget {
           ),
           if (action != null) ...[
             const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: action!,
-            ),
+            Align(alignment: Alignment.centerLeft, child: action!),
           ],
         ],
       ),

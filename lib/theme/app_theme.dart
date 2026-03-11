@@ -67,9 +67,7 @@ class AppTheme {
         highlightElevation: 0,
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
@@ -133,7 +131,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(inputRadius),
           borderSide: BorderSide.none,
@@ -200,9 +201,7 @@ class AppTheme {
         highlightElevation: 0,
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
@@ -266,7 +265,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF111827),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(inputRadius),
           borderSide: BorderSide.none,

@@ -1,9 +1,6 @@
 import 'dart:convert';
 
-enum AuthType {
-  password,
-  privateKey,
-}
+enum AuthType { password, privateKey }
 
 class ServerProfile {
   const ServerProfile({
@@ -27,9 +24,9 @@ class ServerProfile {
   String get title => '$username@$host';
 
   String get authLabel => switch (authType) {
-        AuthType.password => 'Password',
-        AuthType.privateKey => 'Private key',
-      };
+    AuthType.password => 'Password',
+    AuthType.privateKey => 'Private key',
+  };
 
   Map<String, dynamic> toMap() {
     return {
@@ -46,7 +43,9 @@ class ServerProfile {
   factory ServerProfile.fromMap(Map<String, dynamic> map) {
     final authTypeName = map['authType'] as String? ?? AuthType.password.name;
     return ServerProfile(
-      id: map['id'] as String? ?? DateTime.now().microsecondsSinceEpoch.toString(),
+      id:
+          map['id'] as String? ??
+          DateTime.now().microsecondsSinceEpoch.toString(),
       host: map['host'] as String? ?? '',
       port: (map['port'] as num?)?.toInt() ?? 22,
       username: map['username'] as String? ?? '',

@@ -34,13 +34,11 @@ class AppPageScaffold extends StatelessWidget {
         backgroundColor: AppTheme.chromeColor(theme),
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
-        actions: actions == null ? null : [...actions!, const SizedBox(width: 4)],
+        actions:
+            actions == null ? null : [...actions!, const SizedBox(width: 4)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            color: AppTheme.separatorColor(theme),
-          ),
+          child: Divider(height: 1, color: AppTheme.separatorColor(theme)),
         ),
       ),
       floatingActionButton: floatingActionButton,
@@ -53,10 +51,7 @@ class AppPageScaffold extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxWidth),
-              child: Padding(
-                padding: padding,
-                child: child,
-              ),
+              child: Padding(padding: padding, child: child),
             ),
           ),
         ),
