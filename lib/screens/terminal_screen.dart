@@ -82,6 +82,12 @@ class _TerminalScreenState extends State<TerminalScreen> {
   bool _ctrlActive = false;
   bool _altActive = false;
 
+  // font size for pinch-to-zoom
+  double _fontSize = 13.0;
+  double _fontSizeBeforeScale = 13.0;
+  static const double _minFontSize = 8.0;
+  static const double _maxFontSize = 24.0;
+
   @override
   void initState() {
     super.initState();
@@ -302,7 +308,19 @@ class _TerminalScreenState extends State<TerminalScreen> {
       child: Column(
       children: [
         Expanded(
-          child: TerminalView(
+          child: GestureDetector(
+            onScaleStart: (details) {
+              _fontSizeBeforeScale = _fontSize;
+            },
+            onScaleUpdate: (details) {
+              if (details.pointerCount < 2) return;
+              final newSize = (_fontSizeBeforeScale * details.scale)
+                  .clamp(_minFontSize, _maxFontSize);
+              if ((newSize - _fontSize).abs() > 0.2) {
+                setState(() => _fontSize = newSize);
+              }
+            },
+            child: TerminalView(
             _terminal,
             theme: const TerminalTheme(
               cursor: Color(0xFFAEAFAD),
@@ -333,15 +351,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
             padding: const EdgeInsets.all(8),
             autofocus: true,
             simulateScroll: false,
-            textStyle: const TerminalStyle(
+            textStyle: TerminalStyle(
               fontFamily: 'JetBrainsMonoNerd',
-              fontSize: 13.0,
-              fontFamilyFallback: [
+              fontSize: _fontSize,
+              fontFamilyFallback: const [
                 'NotoSansSymbols2',
                 'Noto Color Emoji',
                 'sans-serif',
               ],
             ),
+          ),
           ),
         ),
         _buildKeyToolbar(),
