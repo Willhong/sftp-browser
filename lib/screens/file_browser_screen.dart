@@ -16,7 +16,9 @@ import '../widgets/breadcrumb_bar.dart';
 import '../widgets/file_entry_tile.dart';
 import '../widgets/section_card.dart';
 import '../widgets/state_panel.dart';
+import 'file_editor_screen.dart';
 import 'file_preview_screen.dart';
+import 'terminal_screen.dart';
 
 class FileBrowserInitialState {
   const FileBrowserInitialState({
@@ -207,6 +209,30 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       MaterialPageRoute<void>(
         builder:
             (_) => FilePreviewScreen(entry: entry, session: widget.session),
+      ),
+    );
+  }
+
+  Future<void> _editEntry(RemoteEntry entry) async {
+    if (entry.isDirectory) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder:
+            (_) => FileEditorScreen(entry: entry, session: widget.session),
+      ),
+    );
+  }
+
+  Future<void> _openTerminal() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => TerminalScreen(
+          profile: widget.profile,
+          session: widget.session,
+        ),
       ),
     );
   }
@@ -537,6 +563,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
           icon: const Icon(Icons.create_new_folder_outlined, size: 18),
           tooltip: 'Create folder',
         ),
+        IconButton(
+          onPressed: _openTerminal,
+          icon: const Icon(Icons.terminal, size: 18),
+          tooltip: 'Open terminal',
+        ),
       ],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isPerformingAction ? null : _uploadFile,
@@ -742,6 +773,9 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                           case _EntryAction.preview:
                             await _previewEntry(entry);
                             break;
+                          case _EntryAction.edit:
+                            await _editEntry(entry);
+                            break;
                           case _EntryAction.download:
                             await _downloadEntry(entry);
                             break;
@@ -759,6 +793,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                               const PopupMenuItem<_EntryAction>(
                                 value: _EntryAction.preview,
                                 child: Text('Preview'),
+                              ),
+                            if (!entry.isDirectory)
+                              const PopupMenuItem<_EntryAction>(
+                                value: _EntryAction.edit,
+                                child: Text('Edit'),
                               ),
                             if (!entry.isDirectory)
                               const PopupMenuItem<_EntryAction>(
@@ -849,4 +888,4 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   }
 }
 
-enum _EntryAction { preview, download, rename, delete }
+enum _EntryAction { preview, edit, download, rename, delete }

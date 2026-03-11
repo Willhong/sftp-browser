@@ -401,9 +401,32 @@ class SftpSession {
     }
   }
 
+  Future<void> writeFile(String remotePath, Uint8List bytes) async {
+    final file = await _sftp.open(
+      remotePath,
+      mode: SftpFileOpenMode.create |
+          SftpFileOpenMode.write |
+          SftpFileOpenMode.truncate,
+    );
+    try {
+      await file.writeBytes(bytes);
+    } finally {
+      await file.close();
+    }
+  }
+
   Future<String> sshRun(String command) async {
     final result = await _ssh.run(command);
     return String.fromCharCodes(result).trim();
+  }
+
+  Future<SSHSession> openShell({int width = 80, int height = 24}) async {
+    return _ssh.shell(
+      pty: SSHPtyConfig(
+        width: width,
+        height: height,
+      ),
+    );
   }
 
   Future<void> close() async {
