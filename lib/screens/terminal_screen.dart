@@ -194,6 +194,24 @@ class _TerminalScreenState extends State<TerminalScreen> {
     _terminal.write('\r\n\x1b[31m[Error: $error]\x1b[0m\r\n');
   }
 
+  // Map toolbar escape sequences to xterm TerminalKey so internal state stays in sync
+  static const _seqToTerminalKey = {
+    '\x1b[A': TerminalKey.arrowUp,
+    '\x1b[B': TerminalKey.arrowDown,
+    '\x1b[D': TerminalKey.arrowLeft,
+    '\x1b[C': TerminalKey.arrowRight,
+    '\x1b':   TerminalKey.escape,
+    '\t':     TerminalKey.tab,
+    '\x1bOP': TerminalKey.f1,
+    '\x1bOQ': TerminalKey.f2,
+    '\x1bOR': TerminalKey.f3,
+    '\x1bOS': TerminalKey.f4,
+    '\x1b[15~': TerminalKey.f5,
+    '\x1b[17~': TerminalKey.f6,
+    '\x1b[18~': TerminalKey.f7,
+    '\x1b[19~': TerminalKey.f8,
+  };
+
   void _sendKey(_KeyDef key) {
     if (key.type == _KeyType.toggle) {
       setState(() {
@@ -203,15 +221,18 @@ class _TerminalScreenState extends State<TerminalScreen> {
       return;
     }
 
-    var seq = key.value;
+    final seq = key.value;
+    final terminalKey = _seqToTerminalKey[seq];
 
-    if (_altActive) {
-      seq = '\x1b$seq';
+    if (terminalKey != null) {
+      // Route through terminal.keyInput so internal cursor state stays in sync
+      _terminal.keyInput(terminalKey, alt: _altActive);
+    } else {
+      // Control codes (^C, ^D etc) — send directly
+      var out = seq;
+      if (_altActive) out = '\x1b$out';
+      _shellSession?.write(utf8.encode(out));
     }
-
-    // Route through session directly (bypass terminal local echo)
-    // so server handles cursor movement properly
-    _shellSession?.write(utf8.encode(seq));
 
     // Auto-reset modifiers after use
     if (_ctrlActive || _altActive) {
