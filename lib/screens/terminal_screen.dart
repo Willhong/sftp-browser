@@ -222,6 +222,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
       textStyle: const TerminalStyle(
         fontFamily: 'JetBrainsMonoNerd',
         fontSize: 13.0,
+        fontFamilyFallback: [
+          'NotoSansSymbols2',
+          'Noto Color Emoji',
+          'sans-serif',
+        ],
       ),
     );
   }
