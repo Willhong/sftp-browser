@@ -219,6 +219,10 @@ class _TerminalScreenState extends State<TerminalScreen> {
       ),
       padding: const EdgeInsets.all(8),
       autofocus: true,
+      textStyle: const TerminalStyle(
+        fontFamily: 'JetBrainsMonoNerd',
+        fontSize: 13.0,
+      ),
     );
   }
 }
