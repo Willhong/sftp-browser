@@ -372,6 +372,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
             padding: const EdgeInsets.all(8),
             autofocus: true,
             simulateScroll: false,
+            hardwareKeyboardOnly: false,
+            deleteDetection: true,
+            keyboardType: TextInputType.visiblePassword,
             textStyle: TerminalStyle(
               fontFamily: 'JetBrainsMonoNerd',
               fontSize: _fontSize,
