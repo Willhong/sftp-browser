@@ -29,6 +29,7 @@ class FileEntryTile<T> extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1 : 0.7,
       child: InkWell(
+        key: ValueKey<String>('entry-${entry.fullPath}'),
         onTap: enabled ? onTap : null,
         hoverColor: AppTheme.rowHoverColor(theme),
         child: ConstrainedBox(

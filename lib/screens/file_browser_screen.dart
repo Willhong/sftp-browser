@@ -85,6 +85,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   bool _isPerformingAction = false;
   String? _errorMessage;
   SftpTransferProgress? _transferProgress;
+  _PendingClipboardAction? _pendingClipboardAction;
   int _loadRequestId = 0;
 
   String get _homePath => widget.initialState.homePath;
@@ -220,8 +221,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder:
-            (_) => FileEditorScreen(entry: entry, session: widget.session),
+        builder: (_) => FileEditorScreen(entry: entry, session: widget.session),
       ),
     );
   }
@@ -229,10 +229,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   Future<void> _openTerminal() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => TerminalScreen(
-          profile: widget.profile,
-          session: widget.session,
-        ),
+        builder:
+            (_) => TerminalScreen(
+              profile: widget.profile,
+              session: widget.session,
+            ),
       ),
     );
   }
@@ -255,6 +256,104 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       successMessage: 'Renamed to $newName.',
       refreshAfter: true,
     );
+  }
+
+  void _stageClipboardAction(RemoteEntry entry, _ClipboardActionType type) {
+    setState(() {
+      _pendingClipboardAction = _PendingClipboardAction(
+        entry: entry,
+        type: type,
+      );
+    });
+    _showSnackBar(
+      type == _ClipboardActionType.copy
+          ? 'Copy ready for ${entry.name}. Open a destination folder and tap Paste here.'
+          : 'Move ready for ${entry.name}. Open a destination folder and tap Paste here.',
+    );
+  }
+
+  void _clearClipboardAction({bool showMessage = false}) {
+    final pendingAction = _pendingClipboardAction;
+    if (pendingAction == null) {
+      return;
+    }
+
+    setState(() {
+      _pendingClipboardAction = null;
+    });
+
+    if (showMessage) {
+      _showSnackBar(
+        pendingAction.type == _ClipboardActionType.copy
+            ? 'Cleared pending copy.'
+            : 'Cleared pending move.',
+      );
+    }
+  }
+
+  String? _validateClipboardDestination(
+    _PendingClipboardAction action,
+    String destinationPath,
+  ) {
+    if (destinationPath == action.entry.fullPath) {
+      return 'Choose a different destination folder.';
+    }
+
+    if (action.entry.isDirectory &&
+        (_currentPath == action.entry.fullPath ||
+            _currentPath.startsWith('${action.entry.fullPath}/'))) {
+      return action.type == _ClipboardActionType.copy
+          ? 'Cannot copy a folder into itself.'
+          : 'Cannot move a folder into itself.';
+    }
+
+    return null;
+  }
+
+  Future<void> _pasteClipboardAction() async {
+    final pendingAction = _pendingClipboardAction;
+    if (pendingAction == null) {
+      return;
+    }
+
+    final destinationPath = SftpSession.normalizeRemotePath(
+      _currentPath,
+      pendingAction.entry.name,
+    );
+    final validationMessage = _validateClipboardDestination(
+      pendingAction,
+      destinationPath,
+    );
+    if (validationMessage != null) {
+      _showSnackBar(validationMessage);
+      return;
+    }
+
+    final succeeded = await _runAction(
+      () {
+        switch (pendingAction.type) {
+          case _ClipboardActionType.copy:
+            return widget.session.copyEntry(
+              pendingAction.entry,
+              destinationPath,
+            );
+          case _ClipboardActionType.move:
+            return widget.session.move(
+              pendingAction.entry.fullPath,
+              destinationPath,
+            );
+        }
+      },
+      successMessage:
+          pendingAction.type == _ClipboardActionType.copy
+              ? 'Copied ${pendingAction.entry.name} here.'
+              : 'Moved ${pendingAction.entry.name} here.',
+      refreshAfter: true,
+    );
+
+    if (succeeded) {
+      _clearClipboardAction();
+    }
   }
 
   Future<void> _createFolder() async {
@@ -320,13 +419,13 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     await _previewEntry(entry);
   }
 
-  Future<void> _runAction(
+  Future<bool> _runAction(
     Future<void> Function() action, {
     required String successMessage,
     bool refreshAfter = false,
   }) async {
     if (_isPerformingAction) {
-      return;
+      return false;
     }
 
     setState(() {
@@ -339,14 +438,16 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
         await _loadDirectory(_currentPath, showLoading: false);
       }
       if (!mounted) {
-        return;
+        return true;
       }
       _showSnackBar(successMessage);
+      return true;
     } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       _showSnackBar(_formatError(error));
+      return false;
     } finally {
       if (mounted) {
         setState(() {
@@ -549,12 +650,41 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       maxWidth: AppTheme.browserMaxWidth,
       actions: [
         IconButton(
+          onPressed:
+              _pendingClipboardAction != null &&
+                      !_isLoading &&
+                      !_isPerformingAction &&
+                      _validateClipboardDestination(
+                            _pendingClipboardAction!,
+                            SftpSession.normalizeRemotePath(
+                              currentPath,
+                              _pendingClipboardAction!.entry.name,
+                            ),
+                          ) ==
+                          null
+                  ? _pasteClipboardAction
+                  : null,
+          icon: const Icon(Icons.content_paste_go_outlined, size: 18),
+          tooltip: 'Paste here',
+        ),
+        IconButton(
+          onPressed:
+              _pendingClipboardAction != null && !_isPerformingAction
+                  ? () => _clearClipboardAction(showMessage: true)
+                  : null,
+          icon: const Icon(Icons.close, size: 18),
+          tooltip: 'Clear pending copy or move',
+        ),
+        IconButton(
           onPressed: _canNavigateUp && !_isLoading ? _navigateUp : null,
           icon: const Icon(Icons.arrow_upward, size: 18),
           tooltip: 'Up one level',
         ),
         IconButton(
-          onPressed: !_isLoading ? () => _loadDirectory(currentPath, showLoading: true) : null,
+          onPressed:
+              !_isLoading
+                  ? () => _loadDirectory(currentPath, showLoading: true)
+                  : null,
           icon: const Icon(Icons.refresh, size: 18),
           tooltip: 'Refresh',
         ),
@@ -642,6 +772,10 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                   (segment) => _loadDirectory(segment.path, showLoading: true),
             ),
           ),
+          if (_pendingClipboardAction case final pendingAction?) ...[
+            const SizedBox(height: 10),
+            _buildClipboardBanner(theme, pendingAction),
+          ],
           if (transferProgress != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -693,8 +827,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             title: 'Unable to load files',
             message: _errorMessage!,
             action: FilledButton.tonalIcon(
-              onPressed:
-                  () => _loadDirectory(_currentPath, showLoading: true),
+              onPressed: () => _loadDirectory(_currentPath, showLoading: true),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
             ),
@@ -747,7 +880,8 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             Divider(height: 1, color: AppTheme.separatorColor(theme)),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => _loadDirectory(_currentPath, showLoading: false),
+                onRefresh:
+                    () => _loadDirectory(_currentPath, showLoading: false),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: ClampingScrollPhysics(),
@@ -779,6 +913,18 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                           case _EntryAction.download:
                             await _downloadEntry(entry);
                             break;
+                          case _EntryAction.copy:
+                            _stageClipboardAction(
+                              entry,
+                              _ClipboardActionType.copy,
+                            );
+                            break;
+                          case _EntryAction.move:
+                            _stageClipboardAction(
+                              entry,
+                              _ClipboardActionType.move,
+                            );
+                            break;
                           case _EntryAction.rename:
                             await _renameEntry(entry);
                             break;
@@ -805,6 +951,14 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                                 child: Text('Download'),
                               ),
                             const PopupMenuItem<_EntryAction>(
+                              value: _EntryAction.copy,
+                              child: Text('Copy'),
+                            ),
+                            const PopupMenuItem<_EntryAction>(
+                              value: _EntryAction.move,
+                              child: Text('Move'),
+                            ),
+                            const PopupMenuItem<_EntryAction>(
                               value: _EntryAction.rename,
                               child: Text('Rename'),
                             ),
@@ -820,6 +974,88 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildClipboardBanner(
+    ThemeData theme,
+    _PendingClipboardAction pendingAction,
+  ) {
+    final destinationPath = SftpSession.normalizeRemotePath(
+      _currentPath,
+      pendingAction.entry.name,
+    );
+    final validationMessage = _validateClipboardDestination(
+      pendingAction,
+      destinationPath,
+    );
+    final actionLabel =
+        pendingAction.type == _ClipboardActionType.copy ? 'Copying' : 'Moving';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer.withValues(
+          alpha: AppTheme.isDark(theme) ? 0.24 : 0.34,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.fromBorderSide(
+          AppTheme.outlineSide(theme, lightAlpha: 0.55, darkAlpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$actionLabel ${pendingAction.entry.name}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            pendingAction.entry.fullPath,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            validationMessage ??
+                'Paste into $_currentPath as ${pendingAction.entry.name}.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color:
+                  validationMessage == null
+                      ? theme.colorScheme.onSurfaceVariant
+                      : theme.colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed:
+                    validationMessage == null && !_isPerformingAction
+                        ? _pasteClipboardAction
+                        : null,
+                icon: const Icon(Icons.content_paste_go_outlined, size: 18),
+                label: const Text('Paste here'),
+              ),
+              OutlinedButton.icon(
+                onPressed:
+                    !_isPerformingAction
+                        ? () => _clearClipboardAction(showMessage: true)
+                        : null,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -888,4 +1124,13 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   }
 }
 
-enum _EntryAction { preview, edit, download, rename, delete }
+enum _ClipboardActionType { copy, move }
+
+class _PendingClipboardAction {
+  const _PendingClipboardAction({required this.entry, required this.type});
+
+  final RemoteEntry entry;
+  final _ClipboardActionType type;
+}
+
+enum _EntryAction { preview, edit, download, copy, move, rename, delete }
