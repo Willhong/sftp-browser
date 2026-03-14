@@ -11,6 +11,7 @@ class ServerProfile {
     required this.authType,
     this.password,
     this.privateKey,
+    this.favoritePaths = const [],
   });
 
   final String id;
@@ -20,6 +21,7 @@ class ServerProfile {
   final AuthType authType;
   final String? password;
   final String? privateKey;
+  final List<String> favoritePaths;
 
   String get title => '$username@$host';
 
@@ -27,6 +29,31 @@ class ServerProfile {
     AuthType.password => 'Password',
     AuthType.privateKey => 'Private key',
   };
+
+  ServerProfile copyWith({
+    String? id,
+    String? host,
+    int? port,
+    String? username,
+    AuthType? authType,
+    String? password,
+    String? privateKey,
+    List<String>? favoritePaths,
+  }) {
+    return ServerProfile(
+      id: id ?? this.id,
+      host: host ?? this.host,
+      port: port ?? this.port,
+      username: username ?? this.username,
+      authType: authType ?? this.authType,
+      password: password ?? this.password,
+      privateKey: privateKey ?? this.privateKey,
+      favoritePaths:
+          favoritePaths == null
+              ? this.favoritePaths
+              : _sanitizeFavoritePaths(favoritePaths),
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -37,6 +64,7 @@ class ServerProfile {
       'authType': authType.name,
       'password': password,
       'privateKey': privateKey,
+      'favoritePaths': favoritePaths,
     };
   }
 
@@ -55,6 +83,7 @@ class ServerProfile {
       ),
       password: map['password'] as String?,
       privateKey: map['privateKey'] as String?,
+      favoritePaths: _sanitizeFavoritePaths(map['favoritePaths'] as List?),
     );
   }
 
@@ -76,5 +105,21 @@ class ServerProfile {
         .whereType<Map>()
         .map((item) => ServerProfile.fromMap(item.cast<String, dynamic>()))
         .toList();
+  }
+
+  static List<String> _sanitizeFavoritePaths(List? favoritePaths) {
+    if (favoritePaths == null) {
+      return const [];
+    }
+
+    final sanitized = <String>[];
+    for (final rawPath in favoritePaths.whereType<String>()) {
+      final path = rawPath.trim();
+      if (path.isEmpty || sanitized.contains(path)) {
+        continue;
+      }
+      sanitized.add(path);
+    }
+    return List<String>.unmodifiable(sanitized);
   }
 }

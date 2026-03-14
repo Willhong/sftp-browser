@@ -17,6 +17,7 @@ typedef ConnectionScreenBuilder =
       BuildContext context,
       ServerProfile profile,
       SftpRepository repository,
+      Future<void> Function(ServerProfile profile)? onProfileChanged,
     );
 
 class ServerListScreen extends StatefulWidget {
@@ -92,6 +93,16 @@ class _ServerListScreenState extends State<ServerListScreen> {
     });
   }
 
+  Future<void> _saveProfile(ServerProfile profile) async {
+    final updatedProfiles = [..._profiles];
+    final index = updatedProfiles.indexWhere((item) => item.id == profile.id);
+    if (index < 0) {
+      return;
+    }
+    updatedProfiles[index] = profile;
+    await _saveProfiles(updatedProfiles);
+  }
+
   Future<void> _openServerForm([ServerProfile? initialProfile]) async {
     final result = await Navigator.of(context).push<ServerProfile>(
       MaterialPageRoute<ServerProfile>(
@@ -165,10 +176,12 @@ class _ServerListScreenState extends State<ServerListScreen> {
                   context,
                   profile,
                   _repository,
+                  _saveProfile,
                 ) ??
                 ServerConnectionScreen(
                   profile: profile,
                   repository: _repository,
+                  onProfileChanged: _saveProfile,
                 ),
       ),
     );

@@ -62,6 +62,7 @@ class FileBrowserScreen extends StatefulWidget {
     required this.profile,
     required this.session,
     required this.initialState,
+    this.onProfileChanged,
     this.pickUploadSource,
     this.pickDownloadDirectory,
     this.closeSessionOnDispose = true,
@@ -70,6 +71,7 @@ class FileBrowserScreen extends StatefulWidget {
   final ServerProfile profile;
   final SftpSession session;
   final FileBrowserInitialState initialState;
+  final Future<void> Function(ServerProfile profile)? onProfileChanged;
   final UploadSourcePicker? pickUploadSource;
   final DownloadDirectoryPicker? pickDownloadDirectory;
   final bool closeSessionOnDispose;
@@ -79,10 +81,12 @@ class FileBrowserScreen extends StatefulWidget {
 }
 
 class _FileBrowserScreenState extends State<FileBrowserScreen> {
+  late ServerProfile _profile;
   late List<RemoteEntry> _entries;
   late String _currentPath;
   bool _isLoading = false;
   bool _isPerformingAction = false;
+  bool _isUpdatingFavorites = false;
   String? _errorMessage;
   SftpTransferProgress? _transferProgress;
   int _loadRequestId = 0;
@@ -92,6 +96,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   @override
   void initState() {
     super.initState();
+    _profile = widget.profile;
     _entries = List<RemoteEntry>.of(widget.initialState.entries);
     _currentPath = widget.initialState.currentPath;
   }
@@ -220,8 +225,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder:
-            (_) => FileEditorScreen(entry: entry, session: widget.session),
+        builder: (_) => FileEditorScreen(entry: entry, session: widget.session),
       ),
     );
   }
@@ -229,10 +233,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   Future<void> _openTerminal() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => TerminalScreen(
-          profile: widget.profile,
-          session: widget.session,
-        ),
+        builder:
+            (_) => TerminalScreen(
+              profile: widget.profile,
+              session: widget.session,
+            ),
       ),
     );
   }
@@ -318,6 +323,77 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       return;
     }
     await _previewEntry(entry);
+  }
+
+  bool get _isCurrentPathFavorite =>
+      _profile.favoritePaths.contains(_currentPath);
+
+  Future<void> _toggleCurrentPathFavorite() async {
+    final favoritePaths = List<String>.of(_profile.favoritePaths);
+    final currentPath = _currentPath;
+    final isFavorite = favoritePaths.contains(currentPath);
+
+    if (isFavorite) {
+      favoritePaths.remove(currentPath);
+    } else {
+      favoritePaths.add(currentPath);
+    }
+
+    await _saveProfile(
+      _profile.copyWith(favoritePaths: favoritePaths),
+      successMessage:
+          isFavorite
+              ? 'Removed $currentPath from favorites.'
+              : 'Saved $currentPath to favorites.',
+    );
+  }
+
+  Future<void> _removeFavorite(String path) async {
+    if (!_profile.favoritePaths.contains(path)) {
+      return;
+    }
+
+    final favoritePaths = List<String>.of(_profile.favoritePaths)..remove(path);
+    await _saveProfile(
+      _profile.copyWith(favoritePaths: favoritePaths),
+      successMessage: 'Removed $path from favorites.',
+    );
+  }
+
+  Future<void> _saveProfile(
+    ServerProfile nextProfile, {
+    required String successMessage,
+  }) async {
+    if (_isUpdatingFavorites) {
+      return;
+    }
+
+    setState(() {
+      _isUpdatingFavorites = true;
+    });
+
+    try {
+      await widget.onProfileChanged?.call(nextProfile);
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _profile = nextProfile;
+      });
+      _showSnackBar(successMessage);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(_formatError(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUpdatingFavorites = false;
+        });
+      }
+    }
   }
 
   Future<void> _runAction(
@@ -545,16 +621,35 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     final currentPath = _currentPath;
 
     return AppPageScaffold(
-      title: widget.profile.title,
+      title: _profile.title,
       maxWidth: AppTheme.browserMaxWidth,
       actions: [
+        IconButton(
+          onPressed:
+              _isLoading || _isUpdatingFavorites
+                  ? null
+                  : _toggleCurrentPathFavorite,
+          icon: Icon(
+            _isCurrentPathFavorite
+                ? Icons.star_rounded
+                : Icons.star_outline_rounded,
+            size: 18,
+          ),
+          tooltip:
+              _isCurrentPathFavorite
+                  ? 'Remove current path from favorites'
+                  : 'Save current path to favorites',
+        ),
         IconButton(
           onPressed: _canNavigateUp && !_isLoading ? _navigateUp : null,
           icon: const Icon(Icons.arrow_upward, size: 18),
           tooltip: 'Up one level',
         ),
         IconButton(
-          onPressed: !_isLoading ? () => _loadDirectory(currentPath, showLoading: true) : null,
+          onPressed:
+              !_isLoading
+                  ? () => _loadDirectory(currentPath, showLoading: true)
+                  : null,
           icon: const Icon(Icons.refresh, size: 18),
           tooltip: 'Refresh',
         ),
@@ -602,14 +697,14 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.profile.host,
+            _profile.host,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            '${widget.profile.username} • port ${widget.profile.port} • ${widget.profile.authLabel}',
+            '${_profile.username} • port ${_profile.port} • ${_profile.authLabel}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -621,6 +716,10 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             children: [
               AppStatChip(label: 'Path', value: path),
               AppStatChip(label: 'Items', value: '${_entries.length}'),
+              AppStatChip(
+                label: 'Favorites',
+                value: '${_profile.favoritePaths.length}',
+              ),
               AppStatChip(label: 'State', value: stateLabel),
             ],
           ),
@@ -642,6 +741,38 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
                   (segment) => _loadDirectory(segment.path, showLoading: true),
             ),
           ),
+          if (_profile.favoritePaths.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Favorites',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final favoritePath in _profile.favoritePaths)
+                  InputChip(
+                    label: Text(_favoriteLabel(favoritePath)),
+                    tooltip: favoritePath,
+                    onPressed:
+                        _isLoading
+                            ? null
+                            : () =>
+                                _loadDirectory(favoritePath, showLoading: true),
+                    onDeleted:
+                        _isUpdatingFavorites
+                            ? null
+                            : () => _removeFavorite(favoritePath),
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                  ),
+              ],
+            ),
+          ],
           if (transferProgress != null) ...[
             const SizedBox(height: 10),
             Text(
@@ -693,8 +824,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             title: 'Unable to load files',
             message: _errorMessage!,
             action: FilledButton.tonalIcon(
-              onPressed:
-                  () => _loadDirectory(_currentPath, showLoading: true),
+              onPressed: () => _loadDirectory(_currentPath, showLoading: true),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
             ),
@@ -747,7 +877,8 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             Divider(height: 1, color: AppTheme.separatorColor(theme)),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => _loadDirectory(_currentPath, showLoading: false),
+                onRefresh:
+                    () => _loadDirectory(_currentPath, showLoading: false),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: ClampingScrollPhysics(),
@@ -858,6 +989,21 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       parts.add(_formatDateTime(modifiedAt));
     }
     return parts.join(' • ');
+  }
+
+  String _favoriteLabel(String path) {
+    if (path == _homePath) {
+      return 'Home';
+    }
+    if (path == '/') {
+      return 'Root';
+    }
+
+    final name = p.posix.basename(path);
+    if (name.isEmpty || name == '/') {
+      return path;
+    }
+    return name;
   }
 
   String _formatDateTime(DateTime value) {
