@@ -14,10 +14,10 @@ import '../widgets/app_page_scaffold.dart';
 import '../widgets/app_stat_chip.dart';
 import '../widgets/breadcrumb_bar.dart';
 import '../widgets/file_entry_tile.dart';
+import '../widgets/file_preview_panel.dart';
 import '../widgets/section_card.dart';
 import '../widgets/state_panel.dart';
 import 'file_editor_screen.dart';
-import 'file_preview_screen.dart';
 import 'terminal_screen.dart';
 
 class FileBrowserInitialState {
@@ -81,9 +81,12 @@ class FileBrowserScreen extends StatefulWidget {
 class _FileBrowserScreenState extends State<FileBrowserScreen> {
   late List<RemoteEntry> _entries;
   late String _currentPath;
+  final List<RemoteEntry> _previewTabs = <RemoteEntry>[];
   bool _isLoading = false;
   bool _isPerformingAction = false;
   String? _errorMessage;
+  _BrowserPane _selectedMobilePane = _BrowserPane.explorer;
+  String? _selectedPreviewPath;
   SftpTransferProgress? _transferProgress;
   int _loadRequestId = 0;
 
@@ -204,13 +207,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     if (entry.isDirectory) {
       return;
     }
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder:
-            (_) => FilePreviewScreen(entry: entry, session: widget.session),
-      ),
-    );
+    _openPreviewTab(entry);
   }
 
   Future<void> _editEntry(RemoteEntry entry) async {
@@ -220,8 +217,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder:
-            (_) => FileEditorScreen(entry: entry, session: widget.session),
+        builder: (_) => FileEditorScreen(entry: entry, session: widget.session),
       ),
     );
   }
@@ -229,10 +225,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   Future<void> _openTerminal() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => TerminalScreen(
-          profile: widget.profile,
-          session: widget.session,
-        ),
+        builder:
+            (_) => TerminalScreen(
+              profile: widget.profile,
+              session: widget.session,
+            ),
       ),
     );
   }
@@ -250,11 +247,24 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
 
     final parent = p.posix.dirname(entry.fullPath);
     final nextPath = SftpSession.normalizeRemotePath(parent, newName);
-    await _runAction(
+    final renamed = await _runAction(
       () => widget.session.rename(entry.fullPath, nextPath),
       successMessage: 'Renamed to $newName.',
       refreshAfter: true,
     );
+    if (renamed) {
+      _replacePreviewTab(
+        entry.fullPath,
+        RemoteEntry(
+          name: newName,
+          fullPath: nextPath,
+          isDirectory: entry.isDirectory,
+          size: entry.size,
+          modifiedAt: entry.modifiedAt,
+          permissions: entry.permissions,
+        ),
+      );
+    }
   }
 
   Future<void> _createFolder() async {
@@ -305,11 +315,14 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       return;
     }
 
-    await _runAction(
+    final deleted = await _runAction(
       () => widget.session.delete(entry),
       successMessage: '${entry.name} deleted.',
       refreshAfter: true,
     );
+    if (deleted) {
+      _closePreviewTab(entry.fullPath);
+    }
   }
 
   Future<void> _handleEntryTap(RemoteEntry entry) async {
@@ -320,13 +333,77 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     await _previewEntry(entry);
   }
 
-  Future<void> _runAction(
+  void _openPreviewTab(RemoteEntry entry) {
+    final existingIndex = _previewTabs.indexWhere(
+      (item) => item.fullPath == entry.fullPath,
+    );
+
+    setState(() {
+      if (existingIndex >= 0) {
+        _previewTabs[existingIndex] = entry;
+      } else {
+        _previewTabs.add(entry);
+      }
+      _selectedMobilePane = _BrowserPane.preview;
+      _selectedPreviewPath = entry.fullPath;
+    });
+  }
+
+  void _selectPreviewTab(String path) {
+    if (_selectedPreviewPath == path) {
+      return;
+    }
+    setState(() {
+      _selectedPreviewPath = path;
+    });
+  }
+
+  void _closePreviewTab(String path) {
+    final closingIndex = _previewTabs.indexWhere(
+      (item) => item.fullPath == path,
+    );
+    if (closingIndex < 0) {
+      return;
+    }
+
+    setState(() {
+      _previewTabs.removeAt(closingIndex);
+      if (_selectedPreviewPath != path) {
+        return;
+      }
+      if (_previewTabs.isEmpty) {
+        _selectedMobilePane = _BrowserPane.explorer;
+        _selectedPreviewPath = null;
+        return;
+      }
+      final nextIndex = closingIndex.clamp(0, _previewTabs.length - 1);
+      _selectedPreviewPath = _previewTabs[nextIndex].fullPath;
+    });
+  }
+
+  void _replacePreviewTab(String oldPath, RemoteEntry nextEntry) {
+    final existingIndex = _previewTabs.indexWhere(
+      (item) => item.fullPath == oldPath,
+    );
+    if (existingIndex < 0) {
+      return;
+    }
+
+    setState(() {
+      _previewTabs[existingIndex] = nextEntry;
+      if (_selectedPreviewPath == oldPath) {
+        _selectedPreviewPath = nextEntry.fullPath;
+      }
+    });
+  }
+
+  Future<bool> _runAction(
     Future<void> Function() action, {
     required String successMessage,
     bool refreshAfter = false,
   }) async {
     if (_isPerformingAction) {
-      return;
+      return false;
     }
 
     setState(() {
@@ -339,14 +416,16 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
         await _loadDirectory(_currentPath, showLoading: false);
       }
       if (!mounted) {
-        return;
+        return false;
       }
       _showSnackBar(successMessage);
+      return true;
     } catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       _showSnackBar(_formatError(error));
+      return false;
     } finally {
       if (mounted) {
         setState(() {
@@ -554,7 +633,10 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
           tooltip: 'Up one level',
         ),
         IconButton(
-          onPressed: !_isLoading ? () => _loadDirectory(currentPath, showLoading: true) : null,
+          onPressed:
+              !_isLoading
+                  ? () => _loadDirectory(currentPath, showLoading: true)
+                  : null,
           icon: const Icon(Icons.refresh, size: 18),
           tooltip: 'Refresh',
         ),
@@ -693,8 +775,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             title: 'Unable to load files',
             message: _errorMessage!,
             action: FilledButton.tonalIcon(
-              onPressed:
-                  () => _loadDirectory(_currentPath, showLoading: true),
+              onPressed: () => _loadDirectory(_currentPath, showLoading: true),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
             ),
@@ -738,6 +819,77 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       );
     }
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showSplitPreview = constraints.maxWidth >= 900;
+        final previewVisible = showSplitPreview || _previewTabs.isNotEmpty;
+        final explorerPane = _buildExplorerPane(theme);
+
+        if (!previewVisible) {
+          return explorerPane;
+        }
+
+        final previewPane = _buildPreviewPane(theme);
+
+        if (showSplitPreview) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 11, child: explorerPane),
+              const SizedBox(width: AppTheme.sectionGap),
+              Expanded(flex: 10, child: previewPane),
+            ],
+          );
+        }
+
+        return Column(
+          children: [
+            _buildMobilePaneToggle(theme),
+            const SizedBox(height: AppTheme.sectionGap),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedMobilePane == _BrowserPane.explorer ? 0 : 1,
+                children: [explorerPane, previewPane],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobilePaneToggle(ThemeData theme) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SegmentedButton<_BrowserPane>(
+        segments: [
+          ButtonSegment<_BrowserPane>(
+            value: _BrowserPane.explorer,
+            label: const Text('Explorer'),
+            icon: const Icon(Icons.folder_open_outlined, size: 18),
+          ),
+          ButtonSegment<_BrowserPane>(
+            value: _BrowserPane.preview,
+            label: Text('Preview (${_previewTabs.length})'),
+            icon: const Icon(Icons.visibility_outlined, size: 18),
+            enabled: _previewTabs.isNotEmpty,
+          ),
+        ],
+        selected: <_BrowserPane>{_selectedMobilePane},
+        onSelectionChanged: (selection) {
+          final nextPane = selection.first;
+          if (nextPane == _BrowserPane.preview && _previewTabs.isEmpty) {
+            return;
+          }
+          setState(() {
+            _selectedMobilePane = nextPane;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildExplorerPane(ThemeData theme) {
     return SizedBox.expand(
       child: SectionCard(
         padding: EdgeInsets.zero,
@@ -747,7 +899,8 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             Divider(height: 1, color: AppTheme.separatorColor(theme)),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => _loadDirectory(_currentPath, showLoading: false),
+                onRefresh:
+                    () => _loadDirectory(_currentPath, showLoading: false),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: ClampingScrollPhysics(),
@@ -824,6 +977,136 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     );
   }
 
+  Widget _buildPreviewPane(ThemeData theme) {
+    final previewTabs = _previewTabs;
+    final selectedPath = _selectedPreviewPath;
+    final selectedIndex = previewTabs.indexWhere(
+      (item) => item.fullPath == selectedPath,
+    );
+
+    return SizedBox.expand(
+      child: SectionCard(
+        key: const ValueKey('browser-preview-pane'),
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            _buildPaneHeader(
+              theme,
+              'Preview',
+              previewTabs.isEmpty
+                  ? 'Select a file'
+                  : '${previewTabs.length} tabs',
+            ),
+            Divider(height: 1, color: AppTheme.separatorColor(theme)),
+            if (previewTabs.isEmpty)
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: StatePanel(
+                      key: const ValueKey('browser-preview-empty'),
+                      icon: Icons.visibility_outlined,
+                      title: 'No preview open',
+                      message:
+                          'Tap a text or image file to open it in a preview tab.',
+                    ),
+                  ),
+                ),
+              )
+            else ...[
+              SizedBox(
+                height: 52,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                  itemCount: previewTabs.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final entry = previewTabs[index];
+                    final isSelected = entry.fullPath == selectedPath;
+                    return _buildPreviewTabChip(theme, entry, isSelected);
+                  },
+                ),
+              ),
+              Divider(height: 1, color: AppTheme.separatorColor(theme)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: IndexedStack(
+                    index: selectedIndex < 0 ? 0 : selectedIndex,
+                    children: [
+                      for (final entry in previewTabs)
+                        FilePreviewPanel(
+                          key: ValueKey('browser-preview-${entry.fullPath}'),
+                          entry: entry,
+                          session: widget.session,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewTabChip(
+    ThemeData theme,
+    RemoteEntry entry,
+    bool isSelected,
+  ) {
+    return Material(
+      color:
+          isSelected
+              ? theme.colorScheme.primaryContainer
+              : AppTheme.chromeColor(theme),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        key: ValueKey('preview-tab-${entry.fullPath}'),
+        onTap: () => _selectPreviewTab(entry.fullPath),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.only(left: 12, right: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 132),
+                child: Text(
+                  entry.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color:
+                        isSelected
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: () => _closePreviewTab(entry.fullPath),
+                icon: Icon(
+                  Icons.close,
+                  size: 16,
+                  color:
+                      isSelected
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
+                ),
+                tooltip: 'Close ${entry.name}',
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPaneHeader(ThemeData theme, String title, String detail) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -887,5 +1170,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     return '${size.toStringAsFixed(precision)} ${units[unitIndex]}';
   }
 }
+
+enum _BrowserPane { explorer, preview }
 
 enum _EntryAction { preview, edit, download, rename, delete }
