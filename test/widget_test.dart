@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -728,7 +728,6 @@ class _FakeRepository extends SftpRepository {
 class _FakeSession implements SftpSession {
   _FakeSession({
     this.entriesByPath = const <String, List<RemoteEntry>>{},
-    this.homeDirectoryValue = '/home/demo',
     this.listDirectoryHandler,
     this.previewHandler,
     this.uploadHandler,
@@ -736,7 +735,6 @@ class _FakeSession implements SftpSession {
   });
 
   final Map<String, List<RemoteEntry>> entriesByPath;
-  final String homeDirectoryValue;
   final Future<List<RemoteEntry>> Function(String path)? listDirectoryHandler;
   final Future<RemoteFilePreview> Function(RemoteEntry entry)? previewHandler;
   final Stream<SftpTransferProgress> Function({
@@ -756,7 +754,7 @@ class _FakeSession implements SftpSession {
   final ServerProfile profile = _profile;
 
   @override
-  String get homeDirectory => homeDirectoryValue;
+  String get homeDirectory => '/home/demo';
 
   @override
   Future<void> close() async {}
@@ -798,6 +796,11 @@ class _FakeSession implements SftpSession {
   }
 
   @override
+  Future<SSHSession> openShell({int width = 80, int height = 24}) async {
+    throw UnimplementedError('Shell support is not needed in widget tests.');
+  }
+
+  @override
   Future<void> rename(String oldPath, String newPath) async {}
 
   @override
@@ -821,6 +824,9 @@ class _FakeSession implements SftpSession {
       label: label,
     );
   }
+
+  @override
+  Future<void> writeFile(String remotePath, Uint8List bytes) async {}
 }
 
 FileBrowserInitialState _initialBrowserState({
