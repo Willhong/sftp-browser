@@ -25,11 +25,13 @@ class ServerListScreen extends StatefulWidget {
     this.serverStore,
     this.repository,
     this.connectionScreenBuilder,
+    this.onToggleThemeMode,
   });
 
   final ServerStore? serverStore;
   final SftpRepository? repository;
   final ConnectionScreenBuilder? connectionScreenBuilder;
+  final Future<void> Function()? onToggleThemeMode;
 
   @override
   State<ServerListScreen> createState() => _ServerListScreenState();
@@ -187,10 +189,23 @@ class _ServerListScreenState extends State<ServerListScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = AppTheme.isDark(theme);
 
     return AppPageScaffold(
       title: 'SFTP Browser',
       actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: IconButton(
+            onPressed: widget.onToggleThemeMode,
+            icon: Icon(
+              isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              size: 18,
+            ),
+            tooltip:
+                isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: IconButton(
