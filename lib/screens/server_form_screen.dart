@@ -69,6 +69,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
           _authType == AuthType.privateKey
               ? _privateKeyController.text.trim()
               : null,
+      favoritePaths: widget.initialProfile?.favoritePaths ?? const [],
     );
 
     Navigator.of(context).pop(profile);

@@ -17,6 +17,7 @@ typedef ConnectedBrowserBuilder =
       ServerProfile profile,
       SftpSession session,
       FileBrowserInitialState initialState,
+      Future<void> Function(ServerProfile profile)? onProfileChanged,
     );
 
 enum _ConnectionStage { connecting, loadingDirectory, connectedReady, failed }
@@ -27,6 +28,7 @@ class ServerConnectionScreen extends StatefulWidget {
     required this.profile,
     this.repository,
     this.browserBuilder,
+    this.onProfileChanged,
     this.autoNavigate = true,
     this.successHoldDuration = Duration.zero,
   });
@@ -34,6 +36,7 @@ class ServerConnectionScreen extends StatefulWidget {
   final ServerProfile profile;
   final SftpRepository? repository;
   final ConnectedBrowserBuilder? browserBuilder;
+  final Future<void> Function(ServerProfile profile)? onProfileChanged;
   final bool autoNavigate;
   final Duration successHoldDuration;
 
@@ -43,6 +46,7 @@ class ServerConnectionScreen extends StatefulWidget {
 
 class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
   late final SftpRepository _repository = widget.repository ?? SftpRepository();
+  late ServerProfile _profile = widget.profile;
 
   SftpSession? _session;
   FileBrowserInitialState? _initialState;
@@ -79,7 +83,7 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
 
     late final SftpSession session;
     try {
-      session = await _repository.connect(widget.profile);
+      session = await _repository.connect(_profile);
     } on SftpConnectionException catch (error) {
       _showFailure(_buildConnectionFailure(error));
       return;
@@ -158,14 +162,16 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
             (context) =>
                 widget.browserBuilder?.call(
                   context,
-                  widget.profile,
+                  _profile,
                   session,
                   initialState,
+                  _handleProfileChanged,
                 ) ??
                 FileBrowserScreen(
-                  profile: widget.profile,
+                  profile: _profile,
                   session: session,
                   initialState: initialState,
+                  onProfileChanged: _handleProfileChanged,
                 ),
       ),
     );
@@ -220,6 +226,16 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
     return error.toString().replaceFirst('Exception: ', '');
   }
 
+  Future<void> _handleProfileChanged(ServerProfile profile) async {
+    await widget.onProfileChanged?.call(profile);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _profile = profile;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -234,14 +250,14 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.profile.title,
+                  _profile.title,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${widget.profile.host} • port ${widget.profile.port} • ${widget.profile.authLabel}',
+                  '${_profile.host} • port ${_profile.port} • ${_profile.authLabel}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -251,12 +267,13 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
-                    AppStatChip(label: 'User', value: widget.profile.username),
+                    AppStatChip(label: 'User', value: _profile.username),
                     AppStatChip(
                       label: 'State',
                       value: switch (_stage) {
                         _ConnectionStage.connecting => 'Connecting',
-                        _ConnectionStage.loadingDirectory => 'Preparing browser',
+                        _ConnectionStage.loadingDirectory =>
+                          'Preparing browser',
                         _ConnectionStage.connectedReady => 'Ready',
                         _ConnectionStage.failed => 'Needs attention',
                       },
@@ -288,7 +305,9 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
                       message:
                           'Loading the first folder so the browser can open ready to explore.',
                     ),
-                    _ConnectionStage.connectedReady => _buildConnectedPanel(theme),
+                    _ConnectionStage.connectedReady => _buildConnectedPanel(
+                      theme,
+                    ),
                     _ConnectionStage.failed => _buildFailedPanel(theme),
                   },
                 ),
