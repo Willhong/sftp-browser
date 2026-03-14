@@ -46,7 +46,10 @@ void main() {
           ),
         );
 
-        expect(find.byKey(const ValueKey('connection-loading')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-loading')),
+          findsOneWidget,
+        );
         expect(find.text('Connecting to demo@example.com'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
       },
@@ -91,7 +94,8 @@ void main() {
           connectHandler:
               (_) async => _FakeSession(
                 listDirectoryHandler:
-                    (_) async => throw Exception('Permission denied for /home/demo'),
+                    (_) async =>
+                        throw Exception('Permission denied for /home/demo'),
               ),
         );
 
@@ -111,7 +115,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(browserOpened, isFalse);
-        expect(find.byKey(const ValueKey('connection-failure')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-failure')),
+          findsOneWidget,
+        );
         expect(find.text('Unable to open home folder'), findsOneWidget);
         expect(find.text('Permission denied for /home/demo'), findsOneWidget);
       },
@@ -154,9 +161,15 @@ void main() {
 
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
-        expect(find.textContaining('1 items loaded from /home/demo'), findsOneWidget);
+        expect(
+          find.textContaining('1 items loaded from /home/demo'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -165,9 +178,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpHostUnreachableException(
-                'Unable to reach example.com:22. Network is unreachable',
-              ),
+              (_) async =>
+                  throw const SftpHostUnreachableException(
+                    'Unable to reach example.com:22. Network is unreachable',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -195,9 +209,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpAuthenticationException(
-                'Authentication failed. Check the username and credentials.',
-              ),
+              (_) async =>
+                  throw const SftpAuthenticationException(
+                    'Authentication failed. Check the username and credentials.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -224,9 +239,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpUnexpectedConnectionException(
-                'SSH negotiation failed unexpectedly.',
-              ),
+              (_) async =>
+                  throw const SftpUnexpectedConnectionException(
+                    'SSH negotiation failed unexpectedly.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -245,7 +261,10 @@ void main() {
           find.textContaining('unexpected connection error'),
           findsOneWidget,
         );
-        expect(find.textContaining('SSH negotiation failed unexpectedly.'), findsOneWidget);
+        expect(
+          find.textContaining('SSH negotiation failed unexpectedly.'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -305,7 +324,10 @@ void main() {
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
       },
     );
@@ -322,7 +344,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -345,7 +369,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: const <RemoteEntry>[]),
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -379,7 +405,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_staleEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_staleEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -438,7 +466,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -498,7 +528,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickDownloadDirectory: () async => '/tmp',
             ),
@@ -547,7 +579,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -573,7 +607,157 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Uploading upload.txt'), findsNothing);
-        expect(find.text('Upload failed while writing chunk 2'), findsOneWidget);
+        expect(
+          find.text('Upload failed while writing chunk 2'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-copy][RISK-menu-paste] queues a copy and pastes it into another folder',
+      (tester) async {
+        RemoteEntry? copiedEntry;
+        String? copiedDestination;
+        final session = _FakeSession(
+          entriesByPath: <String, List<RemoteEntry>>{
+            '/home/demo/docs': const <RemoteEntry>[],
+          },
+          copyHandler: (entry, destinationPath) async {
+            copiedEntry = entry;
+            copiedDestination = destinationPath;
+          },
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[_textEntry, _folderEntry],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.more_horiz).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Copy ready for notes.txt'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey<String>('entry-/home/demo/docs')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Copying notes.txt'), findsOneWidget);
+
+        await tester.tap(find.text('Paste here'));
+        await tester.pumpAndSettle();
+
+        expect(copiedEntry, _textEntry);
+        expect(copiedDestination, '/home/demo/docs/notes.txt');
+        expect(find.text('Copied notes.txt here.'), findsOneWidget);
+        expect(find.text('Copying notes.txt'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-move][RISK-menu-paste] queues a move and pastes it into another folder',
+      (tester) async {
+        String? movedSource;
+        String? movedDestination;
+        final session = _FakeSession(
+          entriesByPath: <String, List<RemoteEntry>>{
+            '/home/demo/docs': const <RemoteEntry>[],
+          },
+          moveHandler: (sourcePath, destinationPath) async {
+            movedSource = sourcePath;
+            movedDestination = destinationPath;
+          },
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[_textEntry, _folderEntry],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.more_horiz).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Move'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Move ready for notes.txt'), findsOneWidget);
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey<String>('entry-/home/demo/docs')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Moving notes.txt'), findsOneWidget);
+
+        await tester.tap(find.text('Paste here'));
+        await tester.pumpAndSettle();
+
+        expect(movedSource, '/home/demo/notes.txt');
+        expect(movedDestination, '/home/demo/docs/notes.txt');
+        expect(find.text('Moved notes.txt here.'), findsOneWidget);
+        expect(find.text('Moving notes.txt'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-copy][RISK-self-target] blocks copying a folder into itself',
+      (tester) async {
+        final session = _FakeSession(
+          entriesByPath: <String, List<RemoteEntry>>{
+            '/home/demo/docs': const <RemoteEntry>[],
+          },
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[_folderEntry],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byIcon(Icons.more_horiz).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Copy'));
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 4));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey<String>('entry-/home/demo/docs')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Cannot copy a folder into itself.'), findsOneWidget);
       },
     );
   });
@@ -636,7 +820,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('preview-unsupported')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('preview-unsupported')),
+          findsOneWidget,
+        );
         expect(find.text('Preview not supported'), findsOneWidget);
         expect(
           find.text(
@@ -732,6 +919,8 @@ class _FakeSession implements SftpSession {
     this.previewHandler,
     this.uploadHandler,
     this.downloadHandler,
+    this.copyHandler,
+    this.moveHandler,
   });
 
   final Map<String, List<RemoteEntry>> entriesByPath;
@@ -749,6 +938,10 @@ class _FakeSession implements SftpSession {
     void Function(Uint8List chunk)? onChunk,
   )?
   downloadHandler;
+  final Future<void> Function(RemoteEntry entry, String destinationPath)?
+  copyHandler;
+  final Future<void> Function(String sourcePath, String destinationPath)?
+  moveHandler;
 
   @override
   final ServerProfile profile = _profile;
@@ -758,6 +951,14 @@ class _FakeSession implements SftpSession {
 
   @override
   Future<void> close() async {}
+
+  @override
+  Future<void> copyEntry(RemoteEntry entry, String destinationPath) async {
+    final handler = copyHandler;
+    if (handler != null) {
+      await handler(entry, destinationPath);
+    }
+  }
 
   @override
   Future<void> createDirectory(String directoryPath, String name) async {}
@@ -798,6 +999,14 @@ class _FakeSession implements SftpSession {
   @override
   Future<SSHSession> openShell({int width = 80, int height = 24}) async {
     throw UnimplementedError('Shell support is not needed in widget tests.');
+  }
+
+  @override
+  Future<void> move(String sourcePath, String destinationPath) async {
+    final handler = moveHandler;
+    if (handler != null) {
+      await handler(sourcePath, destinationPath);
+    }
   }
 
   @override

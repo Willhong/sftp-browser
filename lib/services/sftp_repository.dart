@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -118,11 +119,7 @@ class SftpAuthenticationException extends SftpConnectionException {
 
 class SftpUnexpectedConnectionException extends SftpConnectionException {
   const SftpUnexpectedConnectionException(String message)
-    : super(
-        SftpConnectionErrorType.unexpected,
-        'Unable to connect',
-        message,
-      );
+    : super(SftpConnectionErrorType.unexpected, 'Unable to connect', message);
 }
 
 class SftpSession {
@@ -245,6 +242,18 @@ class SftpSession {
 
   Future<void> rename(String oldPath, String newPath) async {
     await _sftp.rename(oldPath, newPath);
+  }
+
+  Future<void> move(String sourcePath, String destinationPath) async {
+    await _sftp.rename(sourcePath, destinationPath);
+  }
+
+  Future<void> copyEntry(RemoteEntry entry, String destinationPath) async {
+    await _runCheckedCommand(
+      entry.isDirectory
+          ? 'cp -R -- ${_shellQuote(entry.fullPath)} ${_shellQuote(destinationPath)}'
+          : 'cp -- ${_shellQuote(entry.fullPath)} ${_shellQuote(destinationPath)}',
+    );
   }
 
   Future<void> createDirectory(String directoryPath, String name) async {
@@ -404,7 +413,8 @@ class SftpSession {
   Future<void> writeFile(String remotePath, Uint8List bytes) async {
     final file = await _sftp.open(
       remotePath,
-      mode: SftpFileOpenMode.create |
+      mode:
+          SftpFileOpenMode.create |
           SftpFileOpenMode.write |
           SftpFileOpenMode.truncate,
     );
@@ -420,13 +430,41 @@ class SftpSession {
     return String.fromCharCodes(result).trim();
   }
 
-  Future<SSHSession> openShell({int width = 80, int height = 24}) async {
-    return _ssh.shell(
-      pty: SSHPtyConfig(
-        width: width,
-        height: height,
-      ),
+  Future<String> _runCheckedCommand(String command) async {
+    final session = await _ssh.execute(command);
+    final output = BytesBuilder(copy: false);
+    final stdoutDone = Completer<void>();
+    final stderrDone = Completer<void>();
+
+    session.stdout.listen(
+      output.add,
+      onDone: stdoutDone.complete,
+      onError: stdoutDone.completeError,
     );
+    session.stderr.listen(
+      output.add,
+      onDone: stderrDone.complete,
+      onError: stderrDone.completeError,
+    );
+
+    await stdoutDone.future;
+    await stderrDone.future;
+    await session.done;
+
+    final response = String.fromCharCodes(output.takeBytes()).trim();
+    final exitCode = session.exitCode;
+    if (exitCode != null && exitCode != 0) {
+      throw Exception(
+        response.isEmpty
+            ? 'Command failed with exit code $exitCode.'
+            : response,
+      );
+    }
+    return response;
+  }
+
+  Future<SSHSession> openShell({int width = 80, int height = 24}) async {
+    return _ssh.shell(pty: SSHPtyConfig(width: width, height: height));
   }
 
   Future<void> close() async {
