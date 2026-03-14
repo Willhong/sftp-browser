@@ -28,6 +28,44 @@ void main() {
     expect(find.text('Add server'), findsWidgets);
   });
 
+  testWidgets(
+    '[REQ-theme-toggle][RISK-ui] shows a dark mode toggle on the saved server landing screen',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.dark_mode_rounded), findsOneWidget);
+      expect(find.byTooltip('Switch to dark mode'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    '[REQ-theme-toggle][RISK-persistence] toggles dark mode and restores it on relaunch',
+    (tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Switch to dark mode'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.light_mode_rounded), findsOneWidget);
+      expect(find.byTooltip('Switch to light mode'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.light_mode_rounded), findsOneWidget);
+      expect(find.byTooltip('Switch to light mode'), findsOneWidget);
+    },
+  );
+
   group('ServerConnectionScreen', () {
     testWidgets(
       '[REQ-connection-loading][RISK-pending-connect] shows connecting before the session resolves',
@@ -46,7 +84,10 @@ void main() {
           ),
         );
 
-        expect(find.byKey(const ValueKey('connection-loading')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-loading')),
+          findsOneWidget,
+        );
         expect(find.text('Connecting to demo@example.com'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
       },
@@ -91,7 +132,8 @@ void main() {
           connectHandler:
               (_) async => _FakeSession(
                 listDirectoryHandler:
-                    (_) async => throw Exception('Permission denied for /home/demo'),
+                    (_) async =>
+                        throw Exception('Permission denied for /home/demo'),
               ),
         );
 
@@ -111,7 +153,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(browserOpened, isFalse);
-        expect(find.byKey(const ValueKey('connection-failure')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-failure')),
+          findsOneWidget,
+        );
         expect(find.text('Unable to open home folder'), findsOneWidget);
         expect(find.text('Permission denied for /home/demo'), findsOneWidget);
       },
@@ -154,9 +199,15 @@ void main() {
 
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
-        expect(find.textContaining('1 items loaded from /home/demo'), findsOneWidget);
+        expect(
+          find.textContaining('1 items loaded from /home/demo'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -165,9 +216,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpHostUnreachableException(
-                'Unable to reach example.com:22. Network is unreachable',
-              ),
+              (_) async =>
+                  throw const SftpHostUnreachableException(
+                    'Unable to reach example.com:22. Network is unreachable',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -195,9 +247,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpAuthenticationException(
-                'Authentication failed. Check the username and credentials.',
-              ),
+              (_) async =>
+                  throw const SftpAuthenticationException(
+                    'Authentication failed. Check the username and credentials.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -224,9 +277,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpUnexpectedConnectionException(
-                'SSH negotiation failed unexpectedly.',
-              ),
+              (_) async =>
+                  throw const SftpUnexpectedConnectionException(
+                    'SSH negotiation failed unexpectedly.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -245,7 +299,10 @@ void main() {
           find.textContaining('unexpected connection error'),
           findsOneWidget,
         );
-        expect(find.textContaining('SSH negotiation failed unexpectedly.'), findsOneWidget);
+        expect(
+          find.textContaining('SSH negotiation failed unexpectedly.'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -305,7 +362,10 @@ void main() {
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
       },
     );
@@ -322,7 +382,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -345,7 +407,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: const <RemoteEntry>[]),
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -379,7 +443,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_staleEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_staleEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -438,7 +504,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -498,7 +566,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickDownloadDirectory: () async => '/tmp',
             ),
@@ -547,7 +617,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -573,7 +645,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Uploading upload.txt'), findsNothing);
-        expect(find.text('Upload failed while writing chunk 2'), findsOneWidget);
+        expect(
+          find.text('Upload failed while writing chunk 2'),
+          findsOneWidget,
+        );
       },
     );
   });
@@ -636,7 +711,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('preview-unsupported')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('preview-unsupported')),
+          findsOneWidget,
+        );
         expect(find.text('Preview not supported'), findsOneWidget);
         expect(
           find.text(
