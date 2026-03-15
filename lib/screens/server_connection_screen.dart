@@ -27,6 +27,7 @@ class ServerConnectionScreen extends StatefulWidget {
     required this.profile,
     this.repository,
     this.browserBuilder,
+    this.inlineBrowserBuilder,
     this.autoNavigate = true,
     this.successHoldDuration = Duration.zero,
   });
@@ -34,6 +35,7 @@ class ServerConnectionScreen extends StatefulWidget {
   final ServerProfile profile;
   final SftpRepository? repository;
   final ConnectedBrowserBuilder? browserBuilder;
+  final ConnectedBrowserBuilder? inlineBrowserBuilder;
   final bool autoNavigate;
   final Duration successHoldDuration;
 
@@ -58,7 +60,8 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
 
   @override
   void dispose() {
-    if (_stage != _ConnectionStage.connectedReady) {
+    if (_stage != _ConnectionStage.connectedReady ||
+        widget.inlineBrowserBuilder != null) {
       _session?.close();
     }
     super.dispose();
@@ -122,6 +125,10 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
         _initialState = initialState;
         _stage = _ConnectionStage.connectedReady;
       });
+
+      if (widget.inlineBrowserBuilder != null) {
+        return;
+      }
 
       if (widget.autoNavigate) {
         if (widget.successHoldDuration > Duration.zero) {
@@ -222,6 +229,21 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final session = _session;
+    final initialState = _initialState;
+    final inlineBrowserBuilder = widget.inlineBrowserBuilder;
+    if (_stage == _ConnectionStage.connectedReady &&
+        inlineBrowserBuilder != null &&
+        session != null &&
+        initialState != null) {
+      return inlineBrowserBuilder(
+        context,
+        widget.profile,
+        session,
+        initialState,
+      );
+    }
+
     final theme = Theme.of(context);
 
     return AppPageScaffold(
@@ -256,7 +278,8 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
                       label: 'State',
                       value: switch (_stage) {
                         _ConnectionStage.connecting => 'Connecting',
-                        _ConnectionStage.loadingDirectory => 'Preparing browser',
+                        _ConnectionStage.loadingDirectory =>
+                          'Preparing browser',
                         _ConnectionStage.connectedReady => 'Ready',
                         _ConnectionStage.failed => 'Needs attention',
                       },
@@ -288,7 +311,9 @@ class _ServerConnectionScreenState extends State<ServerConnectionScreen> {
                       message:
                           'Loading the first folder so the browser can open ready to explore.',
                     ),
-                    _ConnectionStage.connectedReady => _buildConnectedPanel(theme),
+                    _ConnectionStage.connectedReady => _buildConnectedPanel(
+                      theme,
+                    ),
                     _ConnectionStage.failed => _buildFailedPanel(theme),
                   },
                 ),
