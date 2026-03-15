@@ -25,11 +25,13 @@ class ServerListScreen extends StatefulWidget {
     this.serverStore,
     this.repository,
     this.connectionScreenBuilder,
+    this.onOpenProfile,
   });
 
   final ServerStore? serverStore;
   final SftpRepository? repository;
   final ConnectionScreenBuilder? connectionScreenBuilder;
+  final ValueChanged<ServerProfile>? onOpenProfile;
 
   @override
   State<ServerListScreen> createState() => _ServerListScreenState();
@@ -157,6 +159,12 @@ class _ServerListScreenState extends State<ServerListScreen> {
   }
 
   Future<void> _openBrowser(ServerProfile profile) async {
+    final onOpenProfile = widget.onOpenProfile;
+    if (onOpenProfile != null) {
+      onOpenProfile(profile);
+      return;
+    }
+
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
         builder:
