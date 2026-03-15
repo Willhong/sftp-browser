@@ -81,6 +81,7 @@ class FileBrowserScreen extends StatefulWidget {
 class _FileBrowserScreenState extends State<FileBrowserScreen> {
   late List<RemoteEntry> _entries;
   late String _currentPath;
+  RemoteEntrySort _sort = const RemoteEntrySort();
   bool _isLoading = false;
   bool _isPerformingAction = false;
   String? _errorMessage;
@@ -92,7 +93,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   @override
   void initState() {
     super.initState();
-    _entries = List<RemoteEntry>.of(widget.initialState.entries);
+    _entries = _sort.sortEntries(widget.initialState.entries);
     _currentPath = widget.initialState.currentPath;
   }
 
@@ -120,7 +121,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
       }
 
       setState(() {
-        _entries = entries;
+        _entries = _sort.sortEntries(entries);
         _currentPath = path;
         _isLoading = false;
         _errorMessage = null;
@@ -220,8 +221,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder:
-            (_) => FileEditorScreen(entry: entry, session: widget.session),
+        builder: (_) => FileEditorScreen(entry: entry, session: widget.session),
       ),
     );
   }
@@ -229,10 +229,11 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
   Future<void> _openTerminal() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => TerminalScreen(
-          profile: widget.profile,
-          session: widget.session,
-        ),
+        builder:
+            (_) => TerminalScreen(
+              profile: widget.profile,
+              session: widget.session,
+            ),
       ),
     );
   }
@@ -525,6 +526,24 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
     await _loadDirectory(p.posix.dirname(currentPath), showLoading: true);
   }
 
+  void _selectSortField(RemoteEntrySortField field) {
+    if (_sort.field == field) {
+      return;
+    }
+
+    setState(() {
+      _sort = _sort.copyWith(field: field, ascending: field.defaultAscending);
+      _entries = _sort.sortEntries(_entries);
+    });
+  }
+
+  void _toggleSortDirection() {
+    setState(() {
+      _sort = _sort.copyWith(ascending: !_sort.ascending);
+      _entries = _sort.sortEntries(_entries);
+    });
+  }
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -554,9 +573,34 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
           tooltip: 'Up one level',
         ),
         IconButton(
-          onPressed: !_isLoading ? () => _loadDirectory(currentPath, showLoading: true) : null,
+          onPressed:
+              !_isLoading
+                  ? () => _loadDirectory(currentPath, showLoading: true)
+                  : null,
           icon: const Icon(Icons.refresh, size: 18),
           tooltip: 'Refresh',
+        ),
+        PopupMenuButton<RemoteEntrySortField>(
+          tooltip: 'Sort by',
+          onSelected: _selectSortField,
+          itemBuilder:
+              (context) => <PopupMenuEntry<RemoteEntrySortField>>[
+                for (final field in RemoteEntrySortField.values)
+                  CheckedPopupMenuItem<RemoteEntrySortField>(
+                    value: field,
+                    checked: _sort.field == field,
+                    child: Text(field.label),
+                  ),
+              ],
+          icon: const Icon(Icons.sort_outlined, size: 18),
+        ),
+        IconButton(
+          onPressed: _entries.length < 2 ? null : _toggleSortDirection,
+          icon: Icon(_sort.ascending ? Icons.south : Icons.north, size: 18),
+          tooltip:
+              _sort.ascending
+                  ? 'Show descending order'
+                  : 'Show ascending order',
         ),
         IconButton(
           onPressed: _isPerformingAction ? null : _createFolder,
@@ -621,6 +665,10 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             children: [
               AppStatChip(label: 'Path', value: path),
               AppStatChip(label: 'Items', value: '${_entries.length}'),
+              AppStatChip(
+                label: 'Sort',
+                value: '${_sort.field.label} ${_sort.ascending ? '↑' : '↓'}',
+              ),
               AppStatChip(label: 'State', value: stateLabel),
             ],
           ),
@@ -693,8 +741,7 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             title: 'Unable to load files',
             message: _errorMessage!,
             action: FilledButton.tonalIcon(
-              onPressed:
-                  () => _loadDirectory(_currentPath, showLoading: true),
+              onPressed: () => _loadDirectory(_currentPath, showLoading: true),
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Retry'),
             ),
@@ -747,7 +794,8 @@ class _FileBrowserScreenState extends State<FileBrowserScreen> {
             Divider(height: 1, color: AppTheme.separatorColor(theme)),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: () => _loadDirectory(_currentPath, showLoading: false),
+                onRefresh:
+                    () => _loadDirectory(_currentPath, showLoading: false),
                 child: ListView.separated(
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: ClampingScrollPhysics(),

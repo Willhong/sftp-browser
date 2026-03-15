@@ -118,11 +118,7 @@ class SftpAuthenticationException extends SftpConnectionException {
 
 class SftpUnexpectedConnectionException extends SftpConnectionException {
   const SftpUnexpectedConnectionException(String message)
-    : super(
-        SftpConnectionErrorType.unexpected,
-        'Unable to connect',
-        message,
-      );
+    : super(SftpConnectionErrorType.unexpected, 'Unable to connect', message);
 }
 
 class SftpSession {
@@ -234,13 +230,7 @@ class SftpSession {
         })
         .toList(growable: false);
 
-    entries.sort((a, b) {
-      if (a.isDirectory != b.isDirectory) {
-        return a.isDirectory ? -1 : 1;
-      }
-      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
-    return entries;
+    return const RemoteEntrySort().sortEntries(entries);
   }
 
   Future<void> rename(String oldPath, String newPath) async {
@@ -404,7 +394,8 @@ class SftpSession {
   Future<void> writeFile(String remotePath, Uint8List bytes) async {
     final file = await _sftp.open(
       remotePath,
-      mode: SftpFileOpenMode.create |
+      mode:
+          SftpFileOpenMode.create |
           SftpFileOpenMode.write |
           SftpFileOpenMode.truncate,
     );
@@ -421,12 +412,7 @@ class SftpSession {
   }
 
   Future<SSHSession> openShell({int width = 80, int height = 24}) async {
-    return _ssh.shell(
-      pty: SSHPtyConfig(
-        width: width,
-        height: height,
-      ),
-    );
+    return _ssh.shell(pty: SSHPtyConfig(width: width, height: height));
   }
 
   Future<void> close() async {

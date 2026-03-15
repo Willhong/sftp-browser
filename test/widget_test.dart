@@ -46,7 +46,10 @@ void main() {
           ),
         );
 
-        expect(find.byKey(const ValueKey('connection-loading')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-loading')),
+          findsOneWidget,
+        );
         expect(find.text('Connecting to demo@example.com'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
       },
@@ -91,7 +94,8 @@ void main() {
           connectHandler:
               (_) async => _FakeSession(
                 listDirectoryHandler:
-                    (_) async => throw Exception('Permission denied for /home/demo'),
+                    (_) async =>
+                        throw Exception('Permission denied for /home/demo'),
               ),
         );
 
@@ -111,7 +115,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(browserOpened, isFalse);
-        expect(find.byKey(const ValueKey('connection-failure')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-failure')),
+          findsOneWidget,
+        );
         expect(find.text('Unable to open home folder'), findsOneWidget);
         expect(find.text('Permission denied for /home/demo'), findsOneWidget);
       },
@@ -154,9 +161,15 @@ void main() {
 
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
-        expect(find.textContaining('1 items loaded from /home/demo'), findsOneWidget);
+        expect(
+          find.textContaining('1 items loaded from /home/demo'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -165,9 +178,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpHostUnreachableException(
-                'Unable to reach example.com:22. Network is unreachable',
-              ),
+              (_) async =>
+                  throw const SftpHostUnreachableException(
+                    'Unable to reach example.com:22. Network is unreachable',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -195,9 +209,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpAuthenticationException(
-                'Authentication failed. Check the username and credentials.',
-              ),
+              (_) async =>
+                  throw const SftpAuthenticationException(
+                    'Authentication failed. Check the username and credentials.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -224,9 +239,10 @@ void main() {
       (tester) async {
         final repository = _FakeRepository(
           connectHandler:
-              (_) async => throw const SftpUnexpectedConnectionException(
-                'SSH negotiation failed unexpectedly.',
-              ),
+              (_) async =>
+                  throw const SftpUnexpectedConnectionException(
+                    'SSH negotiation failed unexpectedly.',
+                  ),
         );
 
         await tester.pumpWidget(
@@ -245,7 +261,10 @@ void main() {
           find.textContaining('unexpected connection error'),
           findsOneWidget,
         );
-        expect(find.textContaining('SSH negotiation failed unexpectedly.'), findsOneWidget);
+        expect(
+          find.textContaining('SSH negotiation failed unexpectedly.'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -305,7 +324,10 @@ void main() {
         await tester.tap(find.text('Try again'));
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('connection-success')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('connection-success')),
+          findsOneWidget,
+        );
         expect(find.text('Browser ready for demo@example.com'), findsOneWidget);
       },
     );
@@ -322,7 +344,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -345,7 +369,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: const <RemoteEntry>[]),
+              initialState: _initialBrowserState(
+                entries: const <RemoteEntry>[],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -354,6 +380,192 @@ void main() {
         expect(find.text('This folder is empty'), findsOneWidget);
         expect(find.text('Upload'), findsWidgets);
         expect(find.text('Create folder'), findsWidgets);
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-sort][RISK-name-default] sorts initial entries by name while keeping folders first',
+      (tester) async {
+        final session = _FakeSession();
+        final alphaEntry = RemoteEntry(
+          name: 'alpha.txt',
+          fullPath: '/home/demo/alpha.txt',
+          isDirectory: false,
+          size: 24,
+        );
+        final zetaEntry = RemoteEntry(
+          name: 'zeta.log',
+          fullPath: '/home/demo/zeta.log',
+          isDirectory: false,
+          size: 12,
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[zetaEntry, alphaEntry, _folderEntry],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+
+        expect(find.text('Name ↑'), findsOneWidget);
+        expect(
+          _visibleEntryOrder(tester, <String>['docs', 'alpha.txt', 'zeta.log']),
+          equals(<String>['docs', 'alpha.txt', 'zeta.log']),
+        );
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-sort][RISK-modified-date] reorders files by modified date with newest first by default',
+      (tester) async {
+        final session = _FakeSession();
+        final olderEntry = RemoteEntry(
+          name: 'older.txt',
+          fullPath: '/home/demo/older.txt',
+          isDirectory: false,
+          size: 8,
+          modifiedAt: DateTime.utc(2024, 1, 2, 10),
+        );
+        final newerEntry = RemoteEntry(
+          name: 'newer.txt',
+          fullPath: '/home/demo/newer.txt',
+          isDirectory: false,
+          size: 8,
+          modifiedAt: DateTime.utc(2024, 3, 4, 8),
+        );
+        final missingDateEntry = RemoteEntry(
+          name: 'unknown.txt',
+          fullPath: '/home/demo/unknown.txt',
+          isDirectory: false,
+          size: 8,
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[
+                  olderEntry,
+                  missingDateEntry,
+                  newerEntry,
+                ],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+
+        await tester.tap(find.byTooltip('Sort by'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(
+            CheckedPopupMenuItem<RemoteEntrySortField>,
+            'Modified date',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Modified date ↓'), findsOneWidget);
+        expect(
+          _visibleEntryOrder(tester, <String>[
+            'newer.txt',
+            'older.txt',
+            'unknown.txt',
+          ]),
+          equals(<String>['newer.txt', 'older.txt', 'unknown.txt']),
+        );
+      },
+    );
+
+    testWidgets(
+      '[REQ-browser-sort][RISK-extension-direction] sorts by extension and flips order when the direction changes',
+      (tester) async {
+        final session = _FakeSession();
+        final readmeEntry = RemoteEntry(
+          name: 'README',
+          fullPath: '/home/demo/README',
+          isDirectory: false,
+          size: 8,
+        );
+        final logEntry = RemoteEntry(
+          name: 'app.log',
+          fullPath: '/home/demo/app.log',
+          isDirectory: false,
+          size: 8,
+        );
+        final pngEntry = RemoteEntry(
+          name: 'image.png',
+          fullPath: '/home/demo/image.png',
+          isDirectory: false,
+          size: 8,
+        );
+        final textEntry = RemoteEntry(
+          name: 'notes.txt',
+          fullPath: '/home/demo/notes.txt',
+          isDirectory: false,
+          size: 8,
+        );
+
+        await tester.pumpWidget(
+          _TestHost(
+            child: FileBrowserScreen(
+              profile: _profile,
+              session: session,
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[
+                  textEntry,
+                  readmeEntry,
+                  pngEntry,
+                  logEntry,
+                ],
+              ),
+              closeSessionOnDispose: false,
+            ),
+          ),
+        );
+
+        await tester.tap(find.byTooltip('Sort by'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(
+            CheckedPopupMenuItem<RemoteEntrySortField>,
+            'Extension',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Extension ↑'), findsOneWidget);
+        expect(
+          _visibleEntryOrder(tester, <String>[
+            'app.log',
+            'image.png',
+            'notes.txt',
+            'README',
+          ]),
+          equals(<String>['app.log', 'image.png', 'notes.txt', 'README']),
+        );
+
+        await tester.tap(find.byTooltip('Show descending order'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Extension ↓'), findsOneWidget);
+        expect(
+          _visibleEntryOrder(tester, <String>[
+            'notes.txt',
+            'image.png',
+            'app.log',
+            'README',
+          ]),
+          equals(<String>['notes.txt', 'image.png', 'app.log', 'README']),
+        );
       },
     );
 
@@ -379,7 +591,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_staleEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_staleEntry],
+              ),
               closeSessionOnDispose: false,
             ),
           ),
@@ -438,7 +652,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -498,7 +714,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickDownloadDirectory: () async => '/tmp',
             ),
@@ -547,7 +765,9 @@ void main() {
             child: FileBrowserScreen(
               profile: _profile,
               session: session,
-              initialState: _initialBrowserState(entries: <RemoteEntry>[_textEntry]),
+              initialState: _initialBrowserState(
+                entries: <RemoteEntry>[_textEntry],
+              ),
               closeSessionOnDispose: false,
               pickUploadSource: () async {
                 return LocalUploadSource(
@@ -573,7 +793,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('Uploading upload.txt'), findsNothing);
-        expect(find.text('Upload failed while writing chunk 2'), findsOneWidget);
+        expect(
+          find.text('Upload failed while writing chunk 2'),
+          findsOneWidget,
+        );
       },
     );
   });
@@ -636,7 +859,10 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.byKey(const ValueKey('preview-unsupported')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('preview-unsupported')),
+          findsOneWidget,
+        );
         expect(find.text('Preview not supported'), findsOneWidget);
         expect(
           find.text(
@@ -839,6 +1065,21 @@ FileBrowserInitialState _initialBrowserState({
     currentPath: currentPath,
     entries: entries,
   );
+}
+
+List<String> _visibleEntryOrder(WidgetTester tester, Iterable<String> names) {
+  final positions = <MapEntry<String, double>>[];
+
+  for (final name in names) {
+    final finder = find.text(name);
+    if (finder.evaluate().isEmpty) {
+      continue;
+    }
+    positions.add(MapEntry(name, tester.getTopLeft(finder.first).dy));
+  }
+
+  positions.sort((left, right) => left.value.compareTo(right.value));
+  return positions.map((entry) => entry.key).toList(growable: false);
 }
 
 const ServerProfile _profile = ServerProfile(
